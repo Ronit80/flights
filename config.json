@@ -10,7 +10,16 @@
       { "code": "PRG", "name": "פראג" },
       { "code": "VIE", "name": "וינה" },
       { "code": "ATH", "name": "אתונה" },
-      { "code": "LCA", "name": "לרנקה" }
+      { "code": "LCA", "name": "לרנקה" },
+      { "code": "BUS", "name": "באטומי" },
+      { "code": "TBS", "name": "טביליסי" },
+      { "code": "SKG", "name": "תסלוניקי" },
+      { "code": "RHO", "name": "רודוס" },
+      { "code": "HER", "name": "כרתים" },
+      { "code": "CFU", "name": "קורפו" },
+      { "code": "VAR", "name": "ורנה" },
+      { "code": "NAP", "name": "נאפולי" },
+      { "code": "PFO", "name": "פאפוס" }
     ],
     "adults": 4,
     "children_ages": [8, 9, 10, 11, 11],

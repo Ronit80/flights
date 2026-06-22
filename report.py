@@ -257,7 +257,14 @@ APP_TEMPLATE = r"""<!doctype html>
   .c-book{flex:0 0 auto;margin-inline-start:auto}
   .book{display:block;text-align:center;background:linear-gradient(135deg,#1e6fd9,#0ea5b7);color:#fff;padding:13px 22px;border-radius:12px;text-decoration:none;font-weight:800;white-space:nowrap;transition:.2s}
   .book:hover{filter:brightness(1.08)}
-  @media(max-width:760px){.deal{flex-direction:column;align-items:stretch}.c-book{margin:0}.book{width:100%}}
+  @media(max-width:760px){
+    .deal{flex-direction:column;align-items:stretch;gap:8px;padding:14px 16px}
+    .c-dest,.c-price,.c-route,.c-weather,.c-book{flex:none}
+    .c-book{margin:0}.book{width:100%}
+    .c-route{line-height:1.6}
+    .card{padding:18px 16px}
+    .banner{font-size:.85rem;padding:12px 14px}
+  }
   .day{border-inline-start:5px solid var(--brand);background:#f7fbfd;border-radius:14px;padding:16px;margin-top:14px}
   .day h4{color:var(--brand2);font-size:1.05rem;margin-bottom:6px}
   .att{margin:8px 0;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff}
