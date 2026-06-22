@@ -376,7 +376,9 @@ function buildPlan(){
   if(/שעשוע|לונה|רכבת|אדרנל/.test(wish))pref.push('themepark');
   if(/היסטור|טירה|מצוד/.test(wish))pref.push('history');
   var atts=it.attractions.slice().sort(function(a,b){
-    var pa=pref.indexOf(a.tag)>-1?0:1, pb=pref.indexOf(b.tag)>-1?0:1; return pa-pb;
+    var pa=pref.indexOf(a.tag)>-1?0:1, pb=pref.indexOf(b.tag)>-1?0:1;
+    if(pa!==pb)return pa-pb;
+    return (b.wow?1:0)-(a.wow?1:0);  /* "חובה לא לפספס" קודם */
   });
 
   /* חלוקה ליומים */
@@ -404,7 +406,8 @@ function buildPlan(){
     if(!day.picks.length){html+='<div class="muted">יום חופשי — שוטטות, קניות, או חזרה לאטרקציה אהובה.</div>';}
     day.picks.forEach(function(a){
       var carNote=(car==='no'&&a.car)?' · 🚗 עדיף רכב/טיול מאורגן':'';
-      html+='<div class="att"><b>'+esc(a.t)+'</b><div>'+esc(a.d)+'</div><div class="meta">⏱️ '+esc(a.h)+' · 💰 '+esc(a.c)+carNote+'</div></div>';
+      var wowB=a.wow?'<span style="background:#ffd84d;color:#6b4e00;border-radius:6px;padding:1px 6px;font-size:.75rem;font-weight:800">⭐ חובה</span> ':'';
+      html+='<div class="att">'+wowB+'<b>'+esc(a.t)+'</b><div>'+esc(a.d)+'</div><div class="meta">⏱️ '+esc(a.h)+' · 💰 '+esc(a.c)+carNote+'</div></div>';
     });
     html+='</div>';
   });

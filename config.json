@@ -4,11 +4,10 @@
   "search": {
     "origin": "TLV",
     "destinations": [
-      { "code": "PRG", "name": "פראג" },
-      { "code": "BUD", "name": "בודפשט" },
-      { "code": "KRK", "name": "קרקוב" },
       { "code": "WAW", "name": "ורשה" },
-      { "code": "SOF", "name": "סופיה" }
+      { "code": "KRK", "name": "קרקוב" },
+      { "code": "BUD", "name": "בודפשט" },
+      { "code": "PRG", "name": "פראג" }
     ],
     "adults": 4,
     "children_ages": [8, 9, 10, 11, 11],
