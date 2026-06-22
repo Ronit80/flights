@@ -25,6 +25,13 @@ def _bag(airline):
     return BAG_HINT.get(airline, "בדקי מזוודה בקישור ההזמנה")
 
 
+def _fmt_dur(minutes):
+    if not minutes:
+        return ""
+    h, m = divmod(int(minutes), 60)
+    return f"{h}ש' {m}ד'" if m else f"{h}ש'"
+
+
 def flatten_top(results, limit=TOP_N):
     flat = flatten_all(results)
     return flat[:limit]
@@ -107,6 +114,7 @@ def _email_card(o, rank):
           <div style="font-size:19px;color:#1e6091">👨‍👩‍👧‍👦 סה"כ ל-9 נוסעים: <b>~{o['total']:,} {cur}</b></div>
         </div>
         <div>🛫 {o['dep_date']} {o['dep_time']} → 🛬 {o['ret_date']} {o['ret_time']} ({o['nights']} לילות)</div>
+        <div style="color:#50606f;font-size:14px">⏱️ משך טיסה: הלוך ~{_fmt_dur(o.get('dur_to'))} · חזור ~{_fmt_dur(o.get('dur_back'))}</div>
         {weather}
         <div style="color:#50606f">🏢 {_html.escape(o['airline'])} · טיסה ישירה · 🧳 {_bag(o['airline'])}</div>
         <a href="{_html.escape(o['link'])}" style="display:inline-block;margin-top:8px;background:#168aad;color:#fff;padding:9px 14px;border-radius:8px;text-decoration:none;font-weight:700">להזמנה ולמחיר מדויק ➜</a>
@@ -148,6 +156,7 @@ def build_app_html(all_deals, climate, dests, itin, today):
             "dep_date": o["dep_date"], "dep_time": o["dep_time"],
             "ret_date": o["ret_date"], "ret_time": o["ret_time"],
             "nights": o["nights"], "airline": o["airline"],
+            "dur_to": o.get("dur_to", 0), "dur_back": o.get("dur_back", 0),
             "bag": _bag(o["airline"]), "link": o["link"],
         })
     data = {
@@ -283,6 +292,7 @@ function showTab(n){
 }
 function esc(s){var e=document.createElement('div');e.textContent=s;return e.innerHTML;}
 function nf(x){return Math.round(x).toLocaleString('he-IL');}
+function fmtDur(m){if(!m)return '';var h=Math.floor(m/60),r=m%60;return r?(h+"ש' "+r+"ד'"):(h+"ש'");}
 
 /* ---------- מזג אוויר + ניקוד ---------- */
 function estW(d){
@@ -322,6 +332,7 @@ function renderDeals(){
     html+='<div class="deal"><div class="top"><span class="rank">'+(medals[i]||(i+1)+'.')+'</span><span class="dest">'+esc(d.dest)+'</span></div>'
       +'<div class="prices"><div>🎫 כרטיס: <b>~'+nf(d.per_person)+' '+d.currency+'</b></div><div class="p9">👨‍👩‍👧‍👦 ל-9: <b>~'+nf(d.total)+' '+d.currency+'</b></div></div>'
       +'<div class="route">🛫 '+d.dep_date+' '+d.dep_time+' → 🛬 '+d.ret_date+' '+d.ret_time+' <span class="nights">'+d.nights+' לילות</span></div>'
+      +'<div class="bag">⏱️ משך טיסה: הלוך ~'+fmtDur(d.dur_to)+' · חזור ~'+fmtDur(d.dur_back)+'</div>'
       +wl+'<div class="bag">🏢 '+esc(d.airline)+' · ישיר · 🧳 '+esc(d.bag)+'</div>'
       +'<a class="book" href="'+d.link+'" target="_blank">להזמנה ולמחיר מדויק ➜</a></div>';
   });

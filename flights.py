@@ -110,6 +110,8 @@ def _search_destination(token, s, dest):
                 "dep_date": dep_at[:10], "dep_time": dep_at[11:16],
                 "ret_date": ret_at[:10], "ret_time": ret_at[11:16],
                 "nights": nights,
+                "dur_to": o.get("duration_to") or 0,
+                "dur_back": o.get("duration_back") or 0,
                 "link": AVIASALES + o["link"] if o.get("link") else AVIASALES,
             })
         time.sleep(0.15)
