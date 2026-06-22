@@ -128,9 +128,10 @@ def _email_card(o, rank, fx=None):
       <div style="border:1px solid #e3ebf2;border-radius:12px;padding:14px;margin-top:12px">
         <div style="font-size:20px;font-weight:800">{medal} {_html.escape(o['dest'])}</div>
         <div style="background:#f4f9fc;border-radius:10px;padding:10px;margin:8px 0">
-          <div style="font-size:12px;color:#64748b;font-weight:700">💱 מחיר הלוך-חזור:</div>
-          <div>🎫 מחיר לכרטיס אחד: <b>~{o['per_person']:,} {cur}</b> <span style="{cs}">{_conv(o['per_person'], fx)}</span></div>
-          <div style="font-size:19px;color:#1e6091">👨‍👩‍👧‍👦 סה"כ ל-9 נוסעים: <b>~{o['total']:,} {cur}</b> <span style="{cs}">{_conv(o['total'], fx)}</span></div>
+          <div style="font-size:12px;color:#64748b;font-weight:700">💱 מחיר התחלתי הלוך-חזור (אומדן):</div>
+          <div>🎫 מ-<b>~{o['per_person']:,} {cur}</b> לכרטיס <span style="{cs}">{_conv(o['per_person'], fx)}</span></div>
+          <div style="font-size:18px;color:#1e6091">👨‍👩‍👧‍👦 אומדן ל-9: ~{o['total']:,} {cur} <span style="{cs}">{_conv(o['total'], fx)}</span></div>
+          <div style="font-size:12px;color:#b45309;font-weight:600">⚠️ אומדן ממאגר — המחיר הסופי ל-9 בלינק (לרוב גבוה יותר)</div>
         </div>
         <div>🛫 {_fmt_date(o['dep_date'])} בשעה {o['dep_time']}</div>
         <div>🛬 {_fmt_date(o['ret_date'])} בשעה {o['ret_time']} ({o['nights']} לילות)</div>
@@ -256,6 +257,7 @@ APP_TEMPLATE = r"""<!doctype html>
   .c-price{flex:1 1 220px;background:#f4f9fc;border:1px solid #e2eef6;border-radius:10px;padding:8px 12px}
   .c-price .p9b{font-size:1.2rem;font-weight:900;color:var(--brand2);margin-top:1px}
   .c-price .rt{font-size:.72rem;color:#64748b;font-weight:700;margin-bottom:3px}
+  .c-price .warn{font-size:.72rem;color:#b45309;font-weight:600;margin-top:4px;line-height:1.4}
   .conv{color:var(--muted);font-size:.8rem;font-weight:600;white-space:nowrap}
   .c-route{flex:1 1 240px;font-size:.88rem;line-height:1.55;color:#33506e}
   .nights{background:#eef6ff;color:var(--brand2);padding:2px 9px;border-radius:999px;font-size:.78rem;font-weight:700}
@@ -326,6 +328,7 @@ APP_TEMPLATE = r"""<!doctype html>
         </div>
         <button class="btn go" onclick="refreshNow()">🔄 רענן תוצאות</button>
         <a class="btn wa" id="waBtn" href="#" target="_blank">📲 שתפו בוואטסאפ</a>
+        <div class="muted" style="text-align:center;margin-top:8px"><a href="#" onclick="showPopup();return false" style="color:#1e6fd9;font-weight:700">ℹ️ מתי מגיעים נתונים חדשים מהשרת?</a></div>
       </div>
     </div>
     <div id="dealsOut"></div>
@@ -357,7 +360,7 @@ APP_TEMPLATE = r"""<!doctype html>
   </div>
 
   <footer>
-    מחירים אומדן (×9) ממאגר Aviasales — לחצו "להזמנה" למחיר סופי ולמזוודה.<br>
+    💡 המחירים הם <b>הערכה</b> ממאגר Aviasales (מחיר התחלתי לנוסע × 9). בזמן אמת ולקבוצה של 9 נוסעים המחיר בלינק <b>לרוב גבוה יותר</b> — תמיד בדקו את המחיר הסופי בלינק לפני תשלום.<br>
     מזג אוויר = ממוצע אקלימי 5 שנים (הערכה, לא תחזית). · הופק אוטומטית 🤖
   </footer>
 </div>
@@ -389,7 +392,7 @@ function showTab(n){
   document.getElementById('tab2btn').classList.toggle('active', n===2);
 }
 function esc(s){var e=document.createElement('div');e.textContent=s;return e.innerHTML;}
-function refreshNow(){renderDeals();showPopup();}
+function refreshNow(){renderDeals();var o=document.getElementById('dealsOut');if(o)o.scrollIntoView({behavior:'smooth',block:'start'});}
 function showPopup(){document.getElementById('popupTime').textContent=D.TODAY;document.getElementById('popup').classList.add('show');}
 function closePopup(){document.getElementById('popup').classList.remove('show');}
 function toggleSection(id,h){var b=document.getElementById(id);var pm=h.querySelector('.pm');if(b.style.display==='none'){b.style.display='';if(pm)pm.textContent='−';}else{b.style.display='none';if(pm)pm.textContent='+';}}
@@ -439,8 +442,9 @@ function renderDeals(){
     var wl=w?('<div class="weather">🌡️ ~'+w.tmax+'°/'+w.tmin+'° · 🌧️ ~'+w.rainy+' ימי גשם (מתוך '+w.days+')</div>'):'';
     html+='<div class="deal">'
       +'<div class="c-dest"><span class="rank">'+(medals[i]||(i+1)+'.')+'</span> '+esc(d.dest)+'</div>'
-      +'<div class="c-price"><div class="rt">💱 מחיר הלוך-חזור:</div><div>🎫 כרטיס: <b>~'+nf(d.per_person)+' '+d.currency+'</b> <span class="conv">'+conv(d.per_person)+'</span></div>'
-        +'<div class="p9b">👨‍👩‍👧‍👦 ל-9: <b>~'+nf(d.total)+' '+d.currency+'</b> <span class="conv">'+conv(d.total)+'</span></div></div>'
+      +'<div class="c-price"><div class="rt">💱 מחיר התחלתי הלוך-חזור (אומדן):</div><div>🎫 מ-<b>~'+nf(d.per_person)+' '+d.currency+'</b> לכרטיס <span class="conv">'+conv(d.per_person)+'</span></div>'
+        +'<div class="p9b">👨‍👩‍👧‍👦 אומדן ל-9: ~'+nf(d.total)+' '+d.currency+' <span class="conv">'+conv(d.total)+'</span></div>'
+        +'<div class="warn">⚠️ אומדן ממאגר — המחיר הסופי ל-9 בלינק (לרוב גבוה יותר)</div></div>'
       +'<div class="c-route">🛫 '+fmtDate(d.dep_date)+' '+d.dep_time+'<br>🛬 '+fmtDate(d.ret_date)+' '+d.ret_time+' <span class="nights">'+d.nights+' לילות</span><br>⏱️ '+fmtDur(d.dur_to)+' → '+fmtDur(d.dur_back)+' · 🏢 '+esc(d.airline)+' · ישיר</div>'
       +'<div class="c-weather">'+wl+'<div class="bag">🧳 '+esc(d.bag)+'</div></div>'
       +'<div class="c-book"><a class="book" href="'+d.link+'" target="_blank">להזמנה ➜</a></div>'
