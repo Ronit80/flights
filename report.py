@@ -537,7 +537,11 @@ function buildPlan(){
   var html='<div class="card"><h3>🗺️ מסלול ל'+esc(it.name)+' · '+nDays+' ימים</h3>';
   var fdur=planFlightDur||(FLIGHTMIN[code]||0);
   if(fdur)html+='<div class="att" style="border-color:#bbf7d0;background:#f0fdf4"><b>✈️ זמן טיסה מישראל:</b> ~'+fmtDur(fdur)+' (ישיר, לכיוון אחד)</div>';
-  html+='<div class="att" style="border-color:#c7d2fe;background:#eef2ff"><b>🏨 איפה הכי כדאי לישון:</b> '+esc(it.lodging)+'</div>';
+  var cityq=it.name.split('(')[0].trim();
+  var bkurl='https://www.booking.com/searchresults.html?ss='+encodeURIComponent(cityq);
+  var aburl='https://www.airbnb.com/s/'+encodeURIComponent(cityq)+'/homes';
+  html+='<div class="att" style="border-color:#c7d2fe;background:#eef2ff"><b>🏨 איפה הכי כדאי לישון:</b> '+esc(it.lodging)
+    +'<div style="margin-top:7px">🔖 <b>איפה להזמין:</b> <a href="'+bkurl+'" target="_blank" style="color:#1e6fd9;font-weight:700">Booking.com</a> · <a href="'+aburl+'" target="_blank" style="color:#1e6fd9;font-weight:700">Airbnb</a> — למשפחה של 9 כדאי <b>דירה</b> (או 2 דירות/חדרים צמודים), בדרך כלל זול ונוח יותר ממלון.</div></div>';
   html+='<div class="muted">🔄 <b>מסלול מעגלי:</b> יוצאים מהלינה כל בוקר וחוזרים אליה בערב. 🌿 משולב גם טבע ונוף יפהפה ובלתי נשכח!</div>';
   html+='<div class="muted">⚠️ הלו"ז (שעות פתיחה · נסיעה · יציאה) הוא הערכה לתכנון — ודאו שעות מדויקות באתר האטרקציה לפני היציאה.</div>';
   if(budget)html+='<div class="muted">💰 תקציב טיולים שציינת: ~'+nf(+budget)+'₪ — שובץ לפי רמת עלות (₪=זול, ₪₪=בינוני).</div>';
