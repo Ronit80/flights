@@ -19,6 +19,7 @@ AIRLINES = {
     "W9": "Wizz Air UK", "IZ": "Arkia", "6H": "Israir", "OS": "Austrian",
     "LH": "Lufthansa", "A3": "Aegean", "TK": "Turkish", "FB": "Bulgaria Air",
     "QS": "Smartwings", "OK": "Czech Airlines", "RO": "Tarom",
+    "LO": "LOT", "BT": "airBaltic", "RYR": "Ryanair", "FR": "Ryanair",
 }
 
 

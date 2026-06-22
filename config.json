@@ -4,8 +4,10 @@
   "search": {
     "origin": "TLV",
     "destinations": [
-      { "code": "BUD", "name": "בודפשט" },
       { "code": "PRG", "name": "פראג" },
+      { "code": "BUD", "name": "בודפשט" },
+      { "code": "KRK", "name": "קרקוב" },
+      { "code": "WAW", "name": "ורשה" },
       { "code": "SOF", "name": "סופיה" }
     ],
     "adults": 4,
@@ -19,6 +21,7 @@
     "outbound_latest_hour": 15,
     "return_earliest_hour": 17,
     "currency": "ils",
-    "top_per_destination": 2
+    "top_per_destination": 5,
+    "top_results": 5
   }
 }
