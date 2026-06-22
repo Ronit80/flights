@@ -128,6 +128,7 @@ def _email_card(o, rank, fx=None):
       <div style="border:1px solid #e3ebf2;border-radius:12px;padding:14px;margin-top:12px">
         <div style="font-size:20px;font-weight:800">{medal} {_html.escape(o['dest'])}</div>
         <div style="background:#f4f9fc;border-radius:10px;padding:10px;margin:8px 0">
+          <div style="font-size:12px;color:#64748b;font-weight:700">💱 מחיר הלוך-חזור:</div>
           <div>🎫 מחיר לכרטיס אחד: <b>~{o['per_person']:,} {cur}</b> <span style="{cs}">{_conv(o['per_person'], fx)}</span></div>
           <div style="font-size:19px;color:#1e6091">👨‍👩‍👧‍👦 סה"כ ל-9 נוסעים: <b>~{o['total']:,} {cur}</b> <span style="{cs}">{_conv(o['total'], fx)}</span></div>
         </div>
@@ -238,6 +239,12 @@ APP_TEMPLATE = r"""<!doctype html>
   .checks label{display:flex;align-items:center;gap:7px;background:#f1f6fb;border:1.5px solid var(--line);padding:9px 14px;border-radius:12px;margin:0;cursor:pointer;font-size:.92rem;font-weight:500;color:var(--ink);transition:.15s}
   .checks label:hover{border-color:var(--brand)}
   .checks input{width:auto;accent-color:var(--brand)}
+  .dropdown{position:relative}
+  .dd-toggle{width:100%;text-align:right;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;background:#fbfdff;font-family:inherit;font-size:.97rem;font-weight:700;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:space-between}
+  .dd-toggle:hover{border-color:var(--brand)}
+  .dd-panel{display:none;margin-top:6px;border:1.5px solid var(--line);border-radius:12px;padding:12px;background:#fff;max-height:300px;overflow:auto;box-shadow:0 12px 26px -14px rgba(2,32,71,.3)}
+  .dd-panel.show{display:block}
+  .dd-mini{padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:#eef4f9;font-family:inherit;font-size:.82rem;font-weight:700;color:var(--brand2);cursor:pointer}
   .btn{display:block;width:100%;text-align:center;padding:15px;border:0;border-radius:14px;font-family:inherit;font-weight:800;font-size:1.04rem;color:#fff;cursor:pointer;text-decoration:none;margin-top:14px;transition:.2s;box-shadow:0 10px 20px -10px rgba(0,0,0,.4)}
   .btn:hover{transform:translateY(-2px)}
   .btn.go{background:linear-gradient(135deg,#1e6fd9,#0ea5b7)}
@@ -248,6 +255,7 @@ APP_TEMPLATE = r"""<!doctype html>
   .c-dest .rank{font-size:1.35rem}
   .c-price{flex:1 1 220px;background:#f4f9fc;border:1px solid #e2eef6;border-radius:10px;padding:8px 12px}
   .c-price .p9b{font-size:1.2rem;font-weight:900;color:var(--brand2);margin-top:1px}
+  .c-price .rt{font-size:.72rem;color:#64748b;font-weight:700;margin-bottom:3px}
   .conv{color:var(--muted);font-size:.8rem;font-weight:600;white-space:nowrap}
   .c-route{flex:1 1 240px;font-size:.88rem;line-height:1.55;color:#33506e}
   .nights{background:#eef6ff;color:var(--brand2);padding:2px 9px;border-radius:999px;font-size:.78rem;font-weight:700}
@@ -297,8 +305,17 @@ APP_TEMPLATE = r"""<!doctype html>
     <div class="card">
       <h3 class="collapsible" onclick="toggleSection('filterBody',this)">בחרי יעדים ותאריכים <span class="pm">−</span></h3>
       <div class="section-body" id="filterBody">
-        <label>יעדים (אפשר לבחור כמה):</label>
-        <div id="destChecks" class="checks"></div>
+        <label>יעדים (בחירה מרובה):</label>
+        <div class="dropdown">
+          <button type="button" class="dd-toggle" onclick="toggleDD()">🌍 <span id="ddCount">כל היעדים</span> <span>▾</span></button>
+          <div class="dd-panel" id="ddPanel">
+            <div style="display:flex;gap:8px;margin-bottom:10px">
+              <button type="button" class="dd-mini" onclick="selectAllDest(true)">✓ בחר הכל</button>
+              <button type="button" class="dd-mini" onclick="selectAllDest(false)">✗ נקה הכל</button>
+            </div>
+            <div id="destChecks" class="checks"></div>
+          </div>
+        </div>
         <div class="row">
           <div><label>מתאריך</label><input type="date" id="dFrom" onchange="renderDeals()"></div>
           <div><label>עד תאריך</label><input type="date" id="dTo" onchange="renderDeals()"></div>
@@ -376,6 +393,9 @@ function refreshNow(){renderDeals();showPopup();}
 function showPopup(){document.getElementById('popupTime').textContent=D.TODAY;document.getElementById('popup').classList.add('show');}
 function closePopup(){document.getElementById('popup').classList.remove('show');}
 function toggleSection(id,h){var b=document.getElementById(id);var pm=h.querySelector('.pm');if(b.style.display==='none'){b.style.display='';if(pm)pm.textContent='−';}else{b.style.display='none';if(pm)pm.textContent='+';}}
+function toggleDD(){document.getElementById('ddPanel').classList.toggle('show');}
+function selectAllDest(on){var c=document.querySelectorAll('.dchk');for(var i=0;i<c.length;i++)c[i].checked=on;renderDeals();}
+function updateDDCount(){var all=document.querySelectorAll('.dchk'),sel=document.querySelectorAll('.dchk:checked'),el=document.getElementById('ddCount');if(!el)return;el.textContent=(sel.length===all.length)?('כל היעדים ('+all.length+')'):(sel.length+' יעדים נבחרו');}
 function nf(x){return Math.round(x).toLocaleString('he-IL');}
 function fmtDur(m){if(!m)return '';var h=Math.floor(m/60),r=m%60;return r?(h+"ש' "+r+"ד'"):(h+"ש'");}
 var DOW=['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','שבת'];
@@ -401,6 +421,7 @@ function initDeals(){
   renderDeals();
 }
 function renderDeals(){
+  updateDDCount();
   var sel=[].slice.call(document.querySelectorAll('.dchk:checked')).map(function(c){return c.value;});
   var from=document.getElementById('dFrom').value, to=document.getElementById('dTo').value;
   var nmin=+document.getElementById('nMin').value||1, nmax=+document.getElementById('nMax').value||99;
@@ -418,7 +439,7 @@ function renderDeals(){
     var wl=w?('<div class="weather">🌡️ ~'+w.tmax+'°/'+w.tmin+'° · 🌧️ ~'+w.rainy+' ימי גשם (מתוך '+w.days+')</div>'):'';
     html+='<div class="deal">'
       +'<div class="c-dest"><span class="rank">'+(medals[i]||(i+1)+'.')+'</span> '+esc(d.dest)+'</div>'
-      +'<div class="c-price"><div>🎫 כרטיס: <b>~'+nf(d.per_person)+' '+d.currency+'</b> <span class="conv">'+conv(d.per_person)+'</span></div>'
+      +'<div class="c-price"><div class="rt">💱 מחיר הלוך-חזור:</div><div>🎫 כרטיס: <b>~'+nf(d.per_person)+' '+d.currency+'</b> <span class="conv">'+conv(d.per_person)+'</span></div>'
         +'<div class="p9b">👨‍👩‍👧‍👦 ל-9: <b>~'+nf(d.total)+' '+d.currency+'</b> <span class="conv">'+conv(d.total)+'</span></div></div>'
       +'<div class="c-route">🛫 '+fmtDate(d.dep_date)+' '+d.dep_time+'<br>🛬 '+fmtDate(d.ret_date)+' '+d.ret_time+' <span class="nights">'+d.nights+' לילות</span><br>⏱️ '+fmtDur(d.dur_to)+' → '+fmtDur(d.dur_back)+' · 🏢 '+esc(d.airline)+' · ישיר</div>'
       +'<div class="c-weather">'+wl+'<div class="bag">🧳 '+esc(d.bag)+'</div></div>'
