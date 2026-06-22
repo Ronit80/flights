@@ -281,6 +281,7 @@ APP_TEMPLATE = r"""<!doctype html>
   .day h4{color:var(--brand2);font-size:1.05rem;margin-bottom:6px}
   .att{margin:8px 0;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff}
   .att .meta{font-size:.82rem;color:var(--muted);margin-top:4px}
+  .sched{font-size:.83rem;color:#475569;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:9px;padding:8px 10px;margin-top:8px;line-height:1.85}
   .muted{color:var(--muted);font-size:.92rem;margin:6px 0}
   footer{text-align:center;color:#94a3b8;font-size:.8rem;margin:24px 0 10px;line-height:1.7}
   @media(max-width:480px){header h1{font-size:1.45rem}.deal .dest{font-size:1.15rem}.prices .p9{font-size:1.2rem}}
@@ -383,6 +384,8 @@ APP_TEMPLATE = r"""<!doctype html>
 var D = __DATA__;
 var FX = D.FX || {USD:0.27,EUR:0.25};
 var planFlightDur=0;
+/* זמן טיסה משוער מישראל לכל יעד (דקות, לכיוון) */
+var FLIGHTMIN={WAW:220,KRK:220,BUD:195,PRG:225,VIE:190,ATH:120,LCA:55,BUS:180,TBS:190,SKG:130,RHO:105,HER:140,CFU:150,VAR:165,NAP:210,PFO:60};
 function conv(ils){var u=Math.round(ils*FX.USD),e=Math.round(ils*FX.EUR);return '(~$'+u.toLocaleString('en-US')+' / ~€'+e.toLocaleString('en-US')+')';}
 document.getElementById('upd').textContent = 'עודכן: ' + D.TODAY;
 var _lu=document.getElementById('lastupd'); if(_lu)_lu.textContent=D.TODAY;
@@ -477,6 +480,15 @@ function initPlan(){
 function daysBetween(a,b){return Math.round((new Date(b)-new Date(a))/86400000);}
 function addMin(t,m){var p=(t||'12:00').split(':');var tot=(+p[0])*60+(+p[1])+(+m||0);tot=((tot%1440)+1440)%1440;var h=Math.floor(tot/60),mm=tot%60;return (h<10?'0':'')+h+':'+(mm<10?'0':'')+mm;}
 function planFromDeal(code,dd,dt,rd,rt,dur){planFlightDur=dur||0;showTab(2);document.getElementById('pDest').value=code;document.getElementById('pArr').value=dd;document.getElementById('pArrT').value=addMin(dt,dur);document.getElementById('pDep').value=rd;document.getElementById('pDepT').value=rt;buildPlan();var o=document.getElementById('planOut');if(o)o.scrollIntoView({behavior:'smooth'});}
+var TAGHRS={water:'10:00–18:00',themepark:'10:00–19:00',zoo:'09:00–17:00',museum:'09:00–17:00',history:'08:00–18:00',rope:'10:00–18:00',view:'כל היום (מומלץ בוקר/שקיעה)',park:'כל היום'};
+function visitHours(h){if(/יום שלם/.test(h))return 7;if(/חצי יום/.test(h))return 4;var m=(h||'').match(/(\d+)/);return m?(+m[1]):2;}
+function daySched(a,car){
+  var isFill=a.filler, useCar=(!isFill&&car);
+  var leave=useCar?'08:30':'09:15', travel=useCar?55:25;
+  var arrive=addMin(leave,travel), hrs=isFill?4:visitHours(a.h), done=addMin(arrive,hrs*60);
+  var openc=isFill?'גמיש':(TAGHRS[a.tag]||'09:00–18:00');
+  return '<div class="sched">🕘 <b>'+leave+'</b> יציאה מהלינה · 🚗 ~'+travel+' דק\' נסיעה'+(useCar?' (עדיף רכב)':' (תחב\' ציבורית/מונית)')+'<br>📍 <b>'+arrive+'</b> הגעה · שעות פתיחה משוערות: '+openc+'<br>⏱️ ~'+hrs+' שעות ביקור → סיום ~<b>'+done+'</b> · 🍽️ צהריים בסביבה → חזרה ללינה</div>';
+}
 function buildPlan(){
   var code=document.getElementById('pDest').value, it=D.ITIN[code];
   var arr=document.getElementById('pArr').value, dep=document.getElementById('pDep').value;
@@ -501,23 +513,33 @@ function buildPlan(){
     return (b.wow?1:0)-(a.wow?1:0);  /* "חובה לא לפספס" קודם */
   });
 
-  /* חלוקה ליומים — יום אחרון לקניות, כל האטרקציות הטובות בימים שלפניו */
+  /* חלוקה: הגעה=מנוחה, כל יום אמצע=פעילות אחת, רק היום האחרון חופשי */
   var pool=atts.slice(), days=[];
+  var fillers=[
+    {t:'🌿 טיול יום לטבע ונוף',d:'יציאה לאתר טבע/נוף יפהפה באזור — מסלול קל, פיקניק ונופים בלתי נשכחים.',filler:true},
+    {t:'🏖️ יום חוף / פארק מים',d:'יום רגוע בחוף או בפארק מים — שחייה, חול וכיף לכל המשפחה.',filler:true},
+    {t:'🛍️ שוק מקומי ושיטוט',d:'רובע/שוק ססגוני, טעימות מקומיות וקניית מזכרות.',filler:true},
+    {t:'🚠 תצפית / רכבל ונוף',d:'עלייה לנקודת תצפית או רכבל לנוף עוצר נשימה על העיר והסביבה.',filler:true},
+    {t:'🎡 חזרה לאטרקציה האהובה',d:'יום נוסף באטרקציה שהילדים הכי אהבו, או גילוי פינה חדשה בעיר.',filler:true},
+    {t:'🍦 יום עירוני נינוח',d:'בוקר מאוחר, פארק עירוני, גלידה וזמן משפחה ללא לחץ.',filler:true}
+  ];
+  var fi=0;
   for(var i=0;i<nDays;i++){
-    var isArr=(i===0), isDep=(i===nDays-1 && nDays>1);
+    var isArr=(i===0 && nDays>1), isDep=(i===nDays-1 && nDays>1);
     if(isDep){ days.push({dep:true,picks:[]}); continue; }
-    var picks=[]; var max=isArr?1:2;
-    while(picks.length<max && pool.length){ picks.push(pool.shift()); }
-    days.push({arr:isArr,picks:picks});
+    if(isArr){ days.push({arr:true,picks:[]}); continue; }
+    var picks=[];
+    if(pool.length){ picks.push(pool.shift()); }
+    else { picks.push(fillers[fi%fillers.length]); fi++; }
+    days.push({picks:picks});
   }
-  /* אם נשארו אטרקציות — מפזרים לימים שאינם יום החזרה (כדי לכלול את כולן) */
-  var gi=0;
-  while(pool.length && gi<300){ var dr=days[gi%days.length]; if(!dr.dep)dr.picks.push(pool.shift()); gi++; }
 
   var html='<div class="card"><h3>🗺️ מסלול ל'+esc(it.name)+' · '+nDays+' ימים</h3>';
-  html+='<div class="att" style="border-color:#c7d2fe;background:#eef2ff"><b>🏨 איפה לישון:</b> '+esc(it.lodging)+'</div>';
-  if(planFlightDur)html+='<div class="muted">✈️ <b>זמן טיסה ליעד:</b> ~'+fmtDur(planFlightDur)+' (ישיר)</div>';
+  var fdur=planFlightDur||(FLIGHTMIN[code]||0);
+  if(fdur)html+='<div class="att" style="border-color:#bbf7d0;background:#f0fdf4"><b>✈️ זמן טיסה מישראל:</b> ~'+fmtDur(fdur)+' (ישיר, לכיוון אחד)</div>';
+  html+='<div class="att" style="border-color:#c7d2fe;background:#eef2ff"><b>🏨 איפה הכי כדאי לישון:</b> '+esc(it.lodging)+'</div>';
   html+='<div class="muted">🔄 <b>מסלול מעגלי:</b> יוצאים מהלינה כל בוקר וחוזרים אליה בערב. 🌿 משולב גם טבע ונוף יפהפה ובלתי נשכח!</div>';
+  html+='<div class="muted">⚠️ הלו"ז (שעות פתיחה · נסיעה · יציאה) הוא הערכה לתכנון — ודאו שעות מדויקות באתר האטרקציה לפני היציאה.</div>';
   if(budget)html+='<div class="muted">💰 תקציב טיולים שציינת: ~'+nf(+budget)+'₪ — שובץ לפי רמת עלות (₪=זול, ₪₪=בינוני).</div>';
   if(car==='no')html+='<div class="muted">🚗 בלי רכב — אטרקציות מחוץ לעיר סומנו (עדיף טיול מאורגן/מונית).</div>';
   if(wish)html+='<div class="muted">📝 הבקשות שלך נלקחו בחשבון: "'+esc(wish)+'"</div>';
@@ -535,9 +557,11 @@ function buildPlan(){
     }
     if(!day.picks.length && !day.arr && !day.dep){html+='<div class="muted">יום חופשי — שוטטות, חזרה לאטרקציה אהובה או חוף.</div>';}
     day.picks.forEach(function(a){
+      var carOn=(car!=='no');
+      if(a.filler){html+='<div class="att" style="background:#f6fbff"><b>'+esc(a.t)+'</b><div>'+esc(a.d)+'</div>'+daySched(a,carOn)+'</div>';return;}
       var carNote=(car==='no'&&a.car)?' · 🚗 עדיף רכב/טיול מאורגן':'';
       var wowB=a.wow?'<span style="background:#ffd84d;color:#6b4e00;border-radius:6px;padding:1px 6px;font-size:.75rem;font-weight:800">⭐ חובה</span> ':'';
-      html+='<div class="att">'+wowB+'<b>'+esc(a.t)+'</b><div>'+esc(a.d)+'</div><div class="meta">⏱️ '+esc(a.h)+' · 💰 '+esc(a.c)+carNote+'</div></div>';
+      html+='<div class="att">'+wowB+'<b>'+esc(a.t)+'</b><div>'+esc(a.d)+'</div><div class="meta">⏱️ '+esc(a.h)+' · 💰 '+esc(a.c)+carNote+'</div>'+daySched(a,carOn&&a.car)+'</div>';
     });
     html+='</div>';
   });
