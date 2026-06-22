@@ -33,6 +33,8 @@
     "outbound_earliest_hour": 10,
     "outbound_latest_hour": 15,
     "return_earliest_hour": 17,
+    "return_landing_earliest": "16:00",
+    "return_landing_latest": "18:30",
     "currency": "ils",
     "top_per_destination": 60,
     "top_results": 7

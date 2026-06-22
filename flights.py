@@ -53,6 +53,22 @@ def _hour(iso_dt):
     return int(iso_dt[11:13])
 
 
+def _hhmm(s):
+    return int(s[:2]) * 60 + int(s[3:5])
+
+
+def _israel_landing(ret_at, dur_back):
+    """דקות-ביום של הנחיתה בישראל (IDT, UTC+3) לטיסת החזור, או None."""
+    try:
+        hh, mm = int(ret_at[11:13]), int(ret_at[14:16])
+        sign = 1 if ret_at[19] == "+" else -1
+        off = sign * (int(ret_at[20:22]) * 60 + int(ret_at[23:25]))
+        land = (hh * 60 + mm) - off + int(dur_back or 0) + 180  # +3h שעון ישראל
+        return land % 1440
+    except Exception:
+        return None
+
+
 def _query(token, origin, destination, dep_date, ret_date, direct, currency):
     params = {
         "origin": origin,
@@ -106,11 +122,16 @@ def _search_destination(token, s, dest):
             dep_at, ret_at = o.get("departure_at", ""), o.get("return_at", "")
             if not dep_at or not ret_at:
                 continue
-            out_h, ret_h = _hour(dep_at), _hour(ret_at)
+            out_h = _hour(dep_at)
             if not (s["outbound_earliest_hour"] <= out_h <= s["outbound_latest_hour"]):
                 continue
-            if ret_h < s["return_earliest_hour"]:
+            # סינון לפי שעת הנחיתה בישראל בחזרה (ברירת מחדל 16:00-18:30)
+            land = _israel_landing(ret_at, o.get("duration_back") or 0)
+            le = _hhmm(s.get("return_landing_earliest", "16:00"))
+            ll = _hhmm(s.get("return_landing_latest", "18:30"))
+            if land is None or not (le <= land <= ll):
                 continue
+            land_str = f"{land // 60:02d}:{land % 60:02d}"
 
             unit = float(o["price"])
             offers.append({
@@ -123,6 +144,7 @@ def _search_destination(token, s, dest):
                 "nights": nights,
                 "dur_to": o.get("duration_to") or 0,
                 "dur_back": o.get("duration_back") or 0,
+                "land_time": land_str,
                 "link": AVIASALES + o["link"] if o.get("link") else AVIASALES,
             })
 

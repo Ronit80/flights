@@ -134,7 +134,7 @@ def _email_card(o, rank, fx=None):
           <div style="font-size:12px;color:#b45309;font-weight:600">⚠️ אומדן ממאגר — המחיר הסופי ל-9 בלינק (לרוב גבוה יותר)</div>
         </div>
         <div>🛫 {_fmt_date(o['dep_date'])} בשעה {o['dep_time']}</div>
-        <div>🛬 {_fmt_date(o['ret_date'])} בשעה {o['ret_time']} ({o['nights']} לילות)</div>
+        <div>🛬 {_fmt_date(o['ret_date'])} בשעה {o['ret_time']} · נחיתה בישראל ~{o.get('land_time','')} ({o['nights']} לילות)</div>
         <div style="color:#50606f;font-size:14px">⏱️ משך טיסה: הלוך ~{_fmt_dur(o.get('dur_to'))} · חזור ~{_fmt_dur(o.get('dur_back'))}</div>
         {weather}
         <div style="color:#50606f">🏢 {_html.escape(o['airline'])} · טיסה ישירה · 🧳 {_bag(o['airline'])}</div>
@@ -178,6 +178,7 @@ def build_app_html(all_deals, climate, dests, itin, today, fx=None):
             "ret_date": o["ret_date"], "ret_time": o["ret_time"],
             "nights": o["nights"], "airline": o["airline"],
             "dur_to": o.get("dur_to", 0), "dur_back": o.get("dur_back", 0),
+            "land_time": o.get("land_time", ""),
             "bag": _bag(o["airline"]), "link": o["link"],
         })
     data = {
@@ -381,6 +382,7 @@ APP_TEMPLATE = r"""<!doctype html>
 <script>
 var D = __DATA__;
 var FX = D.FX || {USD:0.27,EUR:0.25};
+var planFlightDur=0;
 function conv(ils){var u=Math.round(ils*FX.USD),e=Math.round(ils*FX.EUR);return '(~$'+u.toLocaleString('en-US')+' / ~€'+e.toLocaleString('en-US')+')';}
 document.getElementById('upd').textContent = 'עודכן: ' + D.TODAY;
 var _lu=document.getElementById('lastupd'); if(_lu)_lu.textContent=D.TODAY;
@@ -446,7 +448,7 @@ function renderDeals(){
       +'<div class="c-price"><div class="rt">💱 מחיר התחלתי הלוך-חזור (אומדן):</div><div>🎫 מ-<b>~'+nf(d.per_person)+' '+d.currency+'</b> לכרטיס <span class="conv">'+conv(d.per_person)+'</span></div>'
         +'<div class="p9b">👨‍👩‍👧‍👦 אומדן ל-9: ~'+nf(d.total)+' '+d.currency+' <span class="conv">'+conv(d.total)+'</span></div>'
         +'<div class="warn">⚠️ אומדן ממאגר — המחיר הסופי ל-9 בלינק (לרוב גבוה יותר)</div></div>'
-      +'<div class="c-route">🛫 '+fmtDate(d.dep_date)+' '+d.dep_time+'<br>🛬 '+fmtDate(d.ret_date)+' '+d.ret_time+' <span class="nights">'+d.nights+' לילות</span><br>⏱️ '+fmtDur(d.dur_to)+' → '+fmtDur(d.dur_back)+' · 🏢 '+esc(d.airline)+' · ישיר</div>'
+      +'<div class="c-route">🛫 '+fmtDate(d.dep_date)+' '+d.dep_time+'<br>🛬 '+fmtDate(d.ret_date)+' '+d.ret_time+' · 🛬🇮🇱 נחיתה ~'+d.land_time+' <span class="nights">'+d.nights+' לילות</span><br>⏱️ '+fmtDur(d.dur_to)+' → '+fmtDur(d.dur_back)+' · 🏢 '+esc(d.airline)+' · ישיר</div>'
       +'<div class="c-weather">'+wl+'<div class="bag">🧳 '+esc(d.bag)+'</div></div>'
       +'<div class="c-book"><a class="book" href="'+d.link+'" target="_blank">להזמנה ➜</a>'
         +'<button class="book plan" onclick="planFromDeal(\''+d.code+'\',\''+d.dep_date+'\',\''+d.dep_time+'\',\''+d.ret_date+'\',\''+d.ret_time+'\','+(d.dur_to||0)+')">🗺️ תכנן מסלול</button></div>'
@@ -474,7 +476,7 @@ function initPlan(){
 }
 function daysBetween(a,b){return Math.round((new Date(b)-new Date(a))/86400000);}
 function addMin(t,m){var p=(t||'12:00').split(':');var tot=(+p[0])*60+(+p[1])+(+m||0);tot=((tot%1440)+1440)%1440;var h=Math.floor(tot/60),mm=tot%60;return (h<10?'0':'')+h+':'+(mm<10?'0':'')+mm;}
-function planFromDeal(code,dd,dt,rd,rt,dur){showTab(2);document.getElementById('pDest').value=code;document.getElementById('pArr').value=dd;document.getElementById('pArrT').value=addMin(dt,dur);document.getElementById('pDep').value=rd;document.getElementById('pDepT').value=rt;buildPlan();var o=document.getElementById('planOut');if(o)o.scrollIntoView({behavior:'smooth'});}
+function planFromDeal(code,dd,dt,rd,rt,dur){planFlightDur=dur||0;showTab(2);document.getElementById('pDest').value=code;document.getElementById('pArr').value=dd;document.getElementById('pArrT').value=addMin(dt,dur);document.getElementById('pDep').value=rd;document.getElementById('pDepT').value=rt;buildPlan();var o=document.getElementById('planOut');if(o)o.scrollIntoView({behavior:'smooth'});}
 function buildPlan(){
   var code=document.getElementById('pDest').value, it=D.ITIN[code];
   var arr=document.getElementById('pArr').value, dep=document.getElementById('pDep').value;
@@ -513,11 +515,12 @@ function buildPlan(){
   while(pool.length && gi<300){ var dr=days[gi%days.length]; if(!dr.dep)dr.picks.push(pool.shift()); gi++; }
 
   var html='<div class="card"><h3>🗺️ מסלול ל'+esc(it.name)+' · '+nDays+' ימים</h3>';
-  html+='<div class="muted">לינה מומלצת: '+esc(it.lodging)+'</div>';
+  html+='<div class="att" style="border-color:#c7d2fe;background:#eef2ff"><b>🏨 איפה לישון:</b> '+esc(it.lodging)+'</div>';
+  if(planFlightDur)html+='<div class="muted">✈️ <b>זמן טיסה ליעד:</b> ~'+fmtDur(planFlightDur)+' (ישיר)</div>';
+  html+='<div class="muted">🔄 <b>מסלול מעגלי:</b> יוצאים מהלינה כל בוקר וחוזרים אליה בערב. 🌿 משולב גם טבע ונוף יפהפה ובלתי נשכח!</div>';
   if(budget)html+='<div class="muted">💰 תקציב טיולים שציינת: ~'+nf(+budget)+'₪ — שובץ לפי רמת עלות (₪=זול, ₪₪=בינוני).</div>';
   if(car==='no')html+='<div class="muted">🚗 בלי רכב — אטרקציות מחוץ לעיר סומנו (עדיף טיול מאורגן/מונית).</div>';
   if(wish)html+='<div class="muted">📝 הבקשות שלך נלקחו בחשבון: "'+esc(wish)+'"</div>';
-  html+='<div class="muted">🔄 <b>מסלול מעגלי:</b> יוצאים מהלינה כל בוקר וחוזרים אליה בערב — נוח עם ילדים.</div>';
 
   days.forEach(function(day,idx){
     var lbl='יום '+(idx+1);
@@ -527,7 +530,7 @@ function buildPlan(){
     html+='<div class="day"><h4>'+lbl+esc(note)+'</h4>';
     if(day.arr)html+='<div class="att">🛬 <b>הגעה והתארגנות</b><div>מעבר משדה התעופה ללינה, צ\'ק-אין, ארוחה ושיטוט קצר באזור — יום רגוע אחרי הטיסה.</div></div>';
     if(day.dep){
-      html+='<div class="att">🛍️ <b>בוקר: קניות בקניון</b><div>בוקר נינוח, קניות וסובניר בקניון המרכזי, וארוחת פרידה.</div></div>';
+      html+='<div class="att">😎 <b>יום חופשי ונינוח</b><div>שוטטות בעיר, חזרה לאטרקציה האהובה, חוף או בריכה — לפי מה שבא לכם.</div></div>';
       html+='<div class="att">✈️ <b>לשדה התעופה</b><div>יציאה לשדה — להגיע כ-3 שעות לפני ההמראה ('+depT+') לטיסה בינלאומית.</div></div>';
     }
     if(!day.picks.length && !day.arr && !day.dep){html+='<div class="muted">יום חופשי — שוטטות, חזרה לאטרקציה אהובה או חוף.</div>';}
