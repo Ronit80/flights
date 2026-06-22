@@ -3,6 +3,8 @@ name: Daily Flight Agent
 on:
   schedule:
     - cron: "0 5 * * *"
+    - cron: "0 10 * * *"
+    - cron: "0 15 * * *"
   workflow_dispatch:
 
 permissions:
@@ -29,6 +31,7 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
           EMAIL_RECIPIENTS: ${{ secrets.EMAIL_RECIPIENTS }}
+          SEND_EMAIL: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '0 5 * * *' }}
         run: python build_site.py
       - uses: actions/upload-pages-artifact@v3
         with:
