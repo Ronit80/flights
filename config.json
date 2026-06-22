@@ -12,16 +12,18 @@
     ],
     "adults": 4,
     "children_ages": [8, 9, 10, 11, 11],
-    "window_start": "2026-09-24",
-    "window_end": "2026-10-04",
-    "min_nights": 5,
-    "max_nights": 10,
+    "window_start": "2026-07-25",
+    "window_end": "2026-10-31",
+    "blackout_start": "2026-09-11",
+    "blackout_end": "2026-09-15",
+    "min_nights": 6,
+    "max_nights": 11,
     "nonstop_only": true,
     "outbound_earliest_hour": 10,
     "outbound_latest_hour": 15,
     "return_earliest_hour": 17,
     "currency": "ils",
-    "top_per_destination": 5,
-    "top_results": 5
+    "top_per_destination": 7,
+    "top_results": 7
   }
 }

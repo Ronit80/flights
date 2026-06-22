@@ -1,11 +1,10 @@
 """בניית דוח HTML יפה + טקסט לשיתוף בוואטסאפ.
-מציג את N הדילים הזולים ביותר בסך הכל, ממוינים מהזול ליקר."""
+מציג את N הדילים הזולים ביותר, ממוינים מהזול ליקר, כולל מזג אוויר צפוי."""
 import html as _html
 import urllib.parse
 
-TOP_N = 5
+TOP_N = 7
 
-# רמז מזוודה לפי חברת תעופה (אומדן — לאימות בקישור ההזמנה)
 BAG_HINT = {
     "Wizz Air": "מזוודה לא כלולה — תוספת ~€40-110 לכיוון",
     "Wizz Air Malta": "מזוודה לא כלולה — תוספת ~€40-110 לכיוון",
@@ -24,29 +23,66 @@ def _bag(airline):
     return BAG_HINT.get(airline, "בדקי מזוודה בקישור ההזמנה")
 
 
-def _flatten(results, limit=TOP_N):
-    """אוסף את כל הדילים מכל היעדים, ממיין מהזול ליקר, ולוקח את top N."""
+def flatten_top(results, limit=TOP_N):
+    """כל הדילים מכל היעדים, ממוין מהזול ליקר, top N (עם שם וקוד יעד)."""
     flat = []
     for d in results:
         for o in d.get("offers", []):
-            flat.append({**o, "dest": d["name"]})
+            flat.append({**o, "dest": d["name"], "code": d["code"]})
     flat.sort(key=lambda x: x["total"])
     return flat[:limit]
 
 
-def _empty_dests(results):
+def empty_dests(results):
     return [d["name"] for d in results if not d.get("offers")]
 
 
-def build_summary_text(results, today):
-    """טקסט קצר לשיתוף בוואטסאפ — 5 הזולים."""
-    deals = _flatten(results)
+# --- דירוג משולב: זול + יבש ---
+RAIN_WEIGHT = 0.5  # כמה מזג האוויר משפיע (0=מחיר בלבד, 1=השפעה חזקה)
+
+
+def _rain_ratio(o):
+    w = o.get("weather")
+    if w and w.get("days"):
+        return w["rainy_days"] / max(w["days"], 1)
+    return 0.20  # ברירת מחדל ניטרלית כשאין נתון מזג אוויר
+
+
+def combined_score(o):
+    """ציון נמוך = טוב יותר. כל יחס גשם מייקר את הדיל באופן יחסי."""
+    return o["total"] * (1 + RAIN_WEIGHT * _rain_ratio(o))
+
+
+def rank_combined(deals, top_n=TOP_N):
+    return sorted(deals, key=combined_score)[:top_n]
+
+
+def _weather_bits(w):
+    """מחזיר (אימוג'י, תיאור, שורת מזג אוויר) מתוך נתוני האקלים."""
+    if not w:
+        return "", ""
+    days = max(w.get("days", 0), 1)
+    ratio = w["rainy_days"] / days
+    if ratio <= 0.15:
+        tag = "☀️ מעט גשם"
+    elif ratio <= 0.35:
+        tag = "⛅ גשם מתון"
+    else:
+        tag = "🌧️ גשום יחסית"
+    line = (f"🌡️ ~{w['tmax']}°/{w['tmin']}° · {tag} "
+            f"(~{w['rainy_days']} ימי גשם צפויים מתוך {days})")
+    return tag, line
+
+
+def build_summary_text(deals, today):
     lines = [f"✈️ טיסות משפחתיות זולות — {today}", "(טיסה ישירה, 4 מבוגרים + 5 ילדים)", ""]
     if deals:
         for i, o in enumerate(deals, 1):
+            w = o.get("weather")
+            wx = f" | 🌡️~{w['tmax']}° 🌧️~{w['rainy_days']}ימי גשם" if w else ""
             lines.append(
                 f"{i}. {o['dest']} | כרטיס ~{o['per_person']:,}₪ · ל-9 ~{o['total']:,}₪ | "
-                f"{o['dep_date']} {o['dep_time']}→{o['ret_date']} {o['ret_time']} | {o['airline']} ({_bag(o['airline'])})"
+                f"{o['dep_date']} {o['dep_time']}→{o['ret_date']} {o['ret_time']} | {o['airline']}{wx}"
             )
     else:
         lines.append("עדיין אין מחירים לתאריכים — נמשיך לבדוק כל יום.")
@@ -59,10 +95,12 @@ def wa_share_link(text):
 
 
 def _deal_card(o, rank):
-    medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
+    medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣"]
     medal = medals[rank] if rank < len(medals) else f"{rank+1}."
     booking = _html.escape(o["link"])
     cur = o["currency"]
+    _, weather_line = _weather_bits(o.get("weather"))
+    weather_html = f'<div class="weather">{weather_line}</div>' if weather_line else ""
     return f"""
       <div class="deal">
         <div class="deal-top">
@@ -79,26 +117,25 @@ def _deal_card(o, rank):
           <span>🛬 {o['ret_date']} · {o['ret_time']}</span>
           <span class="nights">{o['nights']} לילות</span>
         </div>
+        {weather_html}
         <div class="airline">🏢 {_html.escape(o['airline'])} · טיסה ישירה</div>
         <div class="bag">🧳 {_bag(o['airline'])}</div>
         <a class="btn book" href="{booking}" target="_blank">להזמנה ולמחיר מדויק ➜</a>
       </div>"""
 
 
-def build_html(results, today):
-    deals = _flatten(results)
-    summary = build_summary_text(results, today)
+def build_html(deals, empties, today):
+    summary = build_summary_text(deals, today)
     wa = _html.escape(wa_share_link(summary))
 
     if deals:
         cards = "".join(_deal_card(o, i) for i, o in enumerate(deals))
-        body = f'<section class="list"><h2>5 הדילים הזולים ביותר (מהזול ליקר)</h2>{cards}</section>'
+        body = f'<section class="list"><h2>{len(deals)} הדילים הכי משתלמים (שילוב מחיר נמוך + מעט גשם)</h2>{cards}</section>'
     else:
         body = """<section class="list"><p class="none">
           עדיין אין מחירים שמורים לתאריכים שלך (רחוק מהיום).
           הדף בודק כל בוקר ויציג דילים ברגע שיופיעו ✓</p></section>"""
 
-    empties = _empty_dests(results)
     pending = ""
     if empties:
         pending = ('<p class="pending">⏳ עדיין ממתינים למחירים: '
@@ -133,11 +170,12 @@ def build_html(results, today):
   .prices .p1 {{ font-size: .95rem; color: #50606f; }}
   .prices .p9 {{ font-size: 1.2rem; color: #1e6091; margin-top: 2px; }}
   .prices b {{ font-weight: 800; }}
-  .bag {{ font-size: .88rem; color: #50606f; margin-bottom: 10px; }}
   .route {{ display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; font-size: .92rem; }}
   .route .arrow {{ color: #168aad; font-weight: 700; }}
   .route .nights {{ background: #e8f3f8; color: #1e6091; padding: 2px 8px; border-radius: 8px; font-size: .82rem; }}
-  .airline {{ color: #50606f; font-size: .9rem; margin-bottom: 10px; }}
+  .weather {{ background: #fff7e6; border-radius: 8px; padding: 7px 10px; font-size: .9rem; color: #6b5a2e; margin: 6px 0; }}
+  .airline {{ color: #50606f; font-size: .9rem; margin-bottom: 4px; }}
+  .bag {{ font-size: .88rem; color: #50606f; margin-bottom: 10px; }}
   .btn {{ display: block; text-align: center; padding: 11px; border-radius: 10px;
          text-decoration: none; font-weight: 700; }}
   .book {{ background: #168aad; color: #fff; }}
@@ -162,7 +200,7 @@ def build_html(results, today):
 
     <footer>
       המחירים אומדן (מחיר נוסע ×9) ממאגר Aviasales — לחצו "להזמנה" למחיר סופי ולבדיקת מזוודה.<br>
-      מזוודה לא תמיד כלולה (במיוחד Wizz/מחיר Light). · הופק אוטומטית 🤖
+      מזג האוויר הוא ממוצע אקלימי מ-5 השנים האחרונות (הערכה, לא תחזית). · הופק אוטומטית 🤖
     </footer>
   </div>
 </body>

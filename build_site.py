@@ -9,7 +9,9 @@ import sys
 from datetime import datetime
 
 from flights import find_best
-from report import build_html, build_summary_text
+from report import (build_html, build_summary_text, flatten_top, empty_dests,
+                    rank_combined, TOP_N)
+from weather import stay_weather
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -27,19 +29,27 @@ def main():
     print(f"[{today}] מחפש טיסות...")
     results, _ = find_best(cfg)
 
-    html = build_html(results, today)
+    # מועמדים: 15 הזולים, מעשירים במזג אוויר, ואז מדרגים שילוב זול+יבש -> top 7
+    top_n = cfg["search"].get("top_results", TOP_N)
+    candidates = flatten_top(results, max(15, top_n * 2))
+    for c in candidates:
+        c["weather"] = stay_weather(c["code"], c["dep_date"], c["ret_date"])
+    deals = rank_combined(candidates, top_n)
+    empties = empty_dests(results)
+
+    html = build_html(deals, empties, today)
     out_dir = os.path.join(HERE, "public")
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "index.html"), "w", encoding="utf-8") as f:
         f.write(html)
     print("✅ נוצר public/index.html")
 
-    for d in results:
-        if d["offers"]:
-            o = d["offers"][0]
-            print(f"  {d['name']}: ~{o['total']:,} | {o['dep_date']} {o['dep_time']}→{o['ret_date']} {o['ret_time']}")
-        else:
-            print(f"  {d['name']}: אין עדיין מחיר")
+    for o in deals:
+        w = o.get("weather")
+        wx = f" | ~{w['tmax']}° {w['rainy_days']}ימי-גשם" if w else ""
+        print(f"  {o['dest']}: ~{o['total']:,} | {o['dep_date']}→{o['ret_date']}{wx}")
+    if not deals:
+        print("  אין עדיין דילים לתאריכים אלה")
 
     # מייל אופציונלי — נשלח רק אם הוגדרה סיסמת אפליקציה ב-Secrets
     pw = os.environ.get("GMAIL_APP_PASSWORD")
@@ -53,7 +63,7 @@ def main():
                 {"smtp_host": "smtp.gmail.com", "smtp_port": 465, "sender": sender,
                  "app_password": pw, "recipients": recips},
                 f"✈️ סוכן הטיסות — דילים ל-{today}",
-                html, build_summary_text(results, today),
+                html, build_summary_text(deals, today),
             )
             print(f"✅ מייל נשלח ל-{len(recips)} נמענים")
         except Exception as e:

@@ -23,17 +23,24 @@ AIRLINES = {
 }
 
 
-def _date_pairs(start, end, min_nights, max_nights):
-    """כל זוגות (הלוך, חזור) בחלון שעומדים ב-min..max לילות."""
+def _date_pairs(start, end, min_nights, max_nights, blackout_start=None, blackout_end=None):
+    """כל זוגות (הלוך, חזור) בחלון שעומדים ב-min..max לילות.
+    מדלג על נסיעות שחופפות לטווח החסום (blackout) — אם הוגדר."""
     d0 = datetime.strptime(start, "%Y-%m-%d")
     d1 = datetime.strptime(end, "%Y-%m-%d")
+    bs = datetime.strptime(blackout_start, "%Y-%m-%d") if blackout_start else None
+    be = datetime.strptime(blackout_end, "%Y-%m-%d") if blackout_end else None
     out = []
     dep = d0
     while dep <= d1:
         for n in range(min_nights, max_nights + 1):
             ret = dep + timedelta(days=n)
-            if ret <= d1:
-                out.append((dep.strftime("%Y-%m-%d"), ret.strftime("%Y-%m-%d"), n))
+            if ret > d1:
+                continue
+            # דילוג אם הנסיעה חופפת לטווח החסום
+            if bs and be and dep <= be and ret >= bs:
+                continue
+            out.append((dep.strftime("%Y-%m-%d"), ret.strftime("%Y-%m-%d"), n))
         dep += timedelta(days=1)
     return out
 
@@ -56,7 +63,13 @@ def _query(token, origin, destination, dep_date, ret_date, direct, currency):
         "limit": 30,
         "token": token,
     }
-    r = requests.get(API, params=params, timeout=40)
+    for attempt in range(4):
+        r = requests.get(API, params=params, timeout=40)
+        if r.status_code == 429:  # חריגה ממגבלת קצב — המתנה וניסיון חוזר
+            time.sleep(2 + attempt * 2)
+            continue
+        r.raise_for_status()
+        return r.json()
     r.raise_for_status()
     return r.json()
 
@@ -64,7 +77,8 @@ def _query(token, origin, destination, dep_date, ret_date, direct, currency):
 def _search_destination(token, s, dest):
     """מחזיר את הדילים הזולים ליעד בודד שעומדים בכל התנאים."""
     pax = s["adults"] + len(s["children_ages"])
-    pairs = _date_pairs(s["window_start"], s["window_end"], s["min_nights"], s["max_nights"])
+    pairs = _date_pairs(s["window_start"], s["window_end"], s["min_nights"], s["max_nights"],
+                        s.get("blackout_start"), s.get("blackout_end"))
     offers, errors = [], 0
 
     for dep, ret, nights in pairs:
@@ -98,7 +112,7 @@ def _search_destination(token, s, dest):
                 "nights": nights,
                 "link": AVIASALES + o["link"] if o.get("link") else AVIASALES,
             })
-        time.sleep(0.25)
+        time.sleep(0.15)
 
     offers.sort(key=lambda x: x["total"])
     seen, unique = set(), []
@@ -117,7 +131,8 @@ def find_best(cfg):
     token = cfg["travelpayouts"]["token"]
     results = []
     total_pairs = len(_date_pairs(s["window_start"], s["window_end"],
-                                  s["min_nights"], s["max_nights"]))
+                                  s["min_nights"], s["max_nights"],
+                                  s.get("blackout_start"), s.get("blackout_end")))
     for dest in s["destinations"]:
         top, errors = _search_destination(token, s, dest)
         results.append({"name": dest["name"], "code": dest["code"],
