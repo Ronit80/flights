@@ -7,7 +7,10 @@
       { "code": "WAW", "name": "ורשה" },
       { "code": "KRK", "name": "קרקוב" },
       { "code": "BUD", "name": "בודפשט" },
-      { "code": "PRG", "name": "פראג" }
+      { "code": "PRG", "name": "פראג" },
+      { "code": "VIE", "name": "וינה" },
+      { "code": "ATH", "name": "אתונה" },
+      { "code": "LCA", "name": "לרנקה" }
     ],
     "adults": 4,
     "children_ages": [8, 9, 10, 11, 11],

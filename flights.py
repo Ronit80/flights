@@ -20,6 +20,8 @@ AIRLINES = {
     "LH": "Lufthansa", "A3": "Aegean", "TK": "Turkish", "FB": "Bulgaria Air",
     "QS": "Smartwings", "OK": "Czech Airlines", "RO": "Tarom",
     "LO": "LOT", "BT": "airBaltic", "RYR": "Ryanair", "FR": "Ryanair",
+    "BZ": "Bluebird Airways", "5W": "Wizz Air Abu Dhabi", "EW": "Eurowings",
+    "VY": "Vueling", "U2": "easyJet", "DY": "Norwegian",
 }
 
 

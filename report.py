@@ -173,54 +173,72 @@ APP_TEMPLATE = r"""<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>סוכן הטיסות המשפחתי</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <style>
+  :root{--bg:#eef2f7;--card:#fff;--ink:#0f2540;--muted:#64748b;--brand:#0ea5b7;--brand2:#1e6fd9;--line:#e6edf4}
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1a2b3c;padding:14px}
-  .wrap{max-width:720px;margin:0 auto}
-  header{background:linear-gradient(135deg,#1e6091,#168aad);color:#fff;border-radius:18px;padding:22px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.12)}
-  header h1{font-size:1.5rem}
-  header p{opacity:.92;margin-top:6px;font-size:.88rem}
-  .tabs{display:flex;gap:8px;margin:16px 0}
-  .tabs button{flex:1;padding:13px;border:0;border-radius:12px;font-weight:800;font-size:1rem;cursor:pointer;background:#dde7ef;color:#1e6091}
-  .tabs button.active{background:#168aad;color:#fff}
-  .panel{display:none}
-  .panel.active{display:block}
-  .card{background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 3px 12px rgba(0,0,0,.06)}
-  .card h3{color:#1e6091;margin-bottom:10px}
-  label{display:block;font-size:.85rem;color:#50606f;margin:8px 0 3px}
-  input,select,textarea{width:100%;padding:9px;border:1px solid #cdd9e4;border-radius:9px;font-family:inherit;font-size:.95rem}
-  .row{display:flex;gap:10px;flex-wrap:wrap}
-  .row>div{flex:1;min-width:130px}
-  .checks{display:flex;flex-wrap:wrap;gap:8px}
-  .checks label{display:flex;align-items:center;gap:6px;background:#eef4f9;padding:7px 11px;border-radius:9px;margin:0;cursor:pointer;font-size:.9rem;color:#1a2b3c}
-  .checks input{width:auto}
-  .btn{display:block;width:100%;text-align:center;padding:12px;border:0;border-radius:11px;font-weight:800;font-size:1rem;color:#fff;cursor:pointer;text-decoration:none;margin-top:12px}
-  .btn.go{background:#168aad}
-  .btn.wa{background:#25d366}
-  .deal{border:1px solid #e3ebf2;border-radius:12px;padding:14px;margin-top:12px}
-  .deal .top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-  .deal .rank{font-size:1.2rem}.deal .dest{font-size:1.15rem;font-weight:800}
-  .prices{background:#f4f9fc;border-radius:10px;padding:10px;margin:8px 0}
-  .prices .p9{font-size:1.15rem;color:#1e6091}
-  .route{font-size:.9rem;margin:6px 0}
-  .nights{background:#e8f3f8;color:#1e6091;padding:2px 8px;border-radius:8px;font-size:.8rem}
-  .weather{background:#fff7e6;border-radius:8px;padding:7px 10px;color:#6b5a2e;font-size:.88rem;margin:6px 0}
-  .bag{color:#50606f;font-size:.85rem;margin:4px 0}
-  .book{display:inline-block;margin-top:6px;background:#168aad;color:#fff;padding:9px 14px;border-radius:8px;text-decoration:none;font-weight:700}
-  .day{border-right:4px solid #168aad;background:#f7fbfd;border-radius:10px;padding:12px;margin-top:10px}
-  .day h4{color:#1e6091}
-  .att{margin:6px 0;padding:8px;border:1px solid #e3ebf2;border-radius:8px}
-  .att .meta{font-size:.8rem;color:#7a8a99;margin-top:3px}
-  .muted{color:#7a8a99;font-size:.9rem}
-  footer{text-align:center;color:#8a99a8;font-size:.78rem;margin:18px 0;line-height:1.6}
+  body{font-family:'Heebo',system-ui,'Segoe UI',Arial,sans-serif;color:var(--ink);min-height:100vh;
+    background:radial-gradient(1100px 480px at 100% -10%,#dbeafe 0,transparent 60%),
+    radial-gradient(900px 480px at -10% 0,#cffafe 0,transparent 55%),var(--bg);
+    padding:26px 18px 44px}
+  .wrap{max-width:780px;margin:0 auto}
+  header{position:relative;overflow:hidden;background:linear-gradient(135deg,#1e6fd9,#0ea5b7 65%,#22c55e);
+    color:#fff;border-radius:26px;padding:32px 26px;text-align:center;box-shadow:0 20px 44px -14px rgba(14,116,144,.55)}
+  header::after{content:"✈️";position:absolute;font-size:150px;opacity:.10;inset-inline-start:-12px;top:-26px;transform:rotate(-15deg)}
+  header h1{font-size:1.75rem;font-weight:900;letter-spacing:-.5px;position:relative}
+  header .sub{margin-top:12px;display:flex;gap:7px;flex-wrap:wrap;justify-content:center;position:relative}
+  header .sub span{background:rgba(255,255,255,.2);padding:6px 13px;border-radius:999px;font-size:.8rem;font-weight:500}
+  header .upd{margin-top:11px;opacity:.85;font-size:.8rem;position:relative}
+  .tabs{display:flex;gap:10px;margin:18px 0;position:sticky;top:10px;z-index:5}
+  .tabs button{flex:1;padding:15px;border:0;border-radius:16px;font-family:inherit;font-weight:800;font-size:1.02rem;cursor:pointer;
+    background:#fff;color:var(--brand2);box-shadow:0 6px 16px -8px rgba(2,32,71,.25);transition:.2s}
+  .tabs button.active{background:linear-gradient(135deg,#1e6fd9,#0ea5b7);color:#fff;box-shadow:0 10px 22px -8px rgba(14,116,144,.6)}
+  .panel{display:none}.panel.active{display:block;animation:fade .3s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .card{background:var(--card);border-radius:22px;padding:24px;margin-bottom:18px;border:1px solid var(--line);box-shadow:0 12px 34px -18px rgba(2,32,71,.28)}
+  .card h3{font-weight:800;font-size:1.25rem;margin-bottom:14px}
+  label{display:block;font-size:.85rem;font-weight:500;color:var(--muted);margin:12px 0 5px}
+  input,select,textarea{width:100%;padding:12px 13px;border:1.5px solid var(--line);border-radius:12px;font-family:inherit;font-size:.97rem;background:#fbfdff;color:var(--ink);transition:.15s}
+  input:focus,select:focus,textarea:focus{outline:0;border-color:var(--brand);box-shadow:0 0 0 4px rgba(14,165,183,.16)}
+  .row{display:flex;gap:12px;flex-wrap:wrap}.row>div{flex:1;min-width:140px}
+  .checks{display:flex;flex-wrap:wrap;gap:9px;margin-top:4px}
+  .checks label{display:flex;align-items:center;gap:7px;background:#f1f6fb;border:1.5px solid var(--line);padding:9px 14px;border-radius:12px;margin:0;cursor:pointer;font-size:.92rem;font-weight:500;color:var(--ink);transition:.15s}
+  .checks label:hover{border-color:var(--brand)}
+  .checks input{width:auto;accent-color:var(--brand)}
+  .btn{display:block;width:100%;text-align:center;padding:15px;border:0;border-radius:14px;font-family:inherit;font-weight:800;font-size:1.04rem;color:#fff;cursor:pointer;text-decoration:none;margin-top:14px;transition:.2s;box-shadow:0 10px 20px -10px rgba(0,0,0,.4)}
+  .btn:hover{transform:translateY(-2px)}
+  .btn.go{background:linear-gradient(135deg,#1e6fd9,#0ea5b7)}
+  .btn.wa{background:linear-gradient(135deg,#25d366,#1ebe5b)}
+  .deal{border:1px solid var(--line);border-radius:18px;padding:18px;margin-top:14px;background:linear-gradient(180deg,#fff,#fbfeff);box-shadow:0 8px 22px -16px rgba(2,32,71,.35);transition:.2s}
+  .deal:hover{transform:translateY(-3px);box-shadow:0 18px 34px -18px rgba(2,32,71,.45)}
+  .deal .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+  .deal .rank{font-size:1.55rem}
+  .deal .dest{font-size:1.32rem;font-weight:900}
+  .prices{background:linear-gradient(135deg,#ecfeff,#eff6ff);border:1px solid #d6f0f5;border-radius:14px;padding:13px 15px;margin:10px 0}
+  .prices .p9{font-size:1.4rem;font-weight:900;color:var(--brand2);margin-top:2px}
+  .route{font-size:.95rem;margin:8px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .nights{background:#eef6ff;color:var(--brand2);padding:3px 10px;border-radius:999px;font-size:.8rem;font-weight:700}
+  .weather{background:linear-gradient(135deg,#fff7e6,#fffaf0);border:1px solid #fde9c8;border-radius:12px;padding:9px 12px;color:#92660a;font-size:.9rem;font-weight:500;margin:8px 0}
+  .bag{color:var(--muted);font-size:.88rem;margin:5px 0}
+  .book{display:block;text-align:center;margin-top:10px;background:linear-gradient(135deg,#1e6fd9,#0ea5b7);color:#fff;padding:13px;border-radius:12px;text-decoration:none;font-weight:800;transition:.2s}
+  .book:hover{filter:brightness(1.08)}
+  .day{border-inline-start:5px solid var(--brand);background:#f7fbfd;border-radius:14px;padding:16px;margin-top:14px}
+  .day h4{color:var(--brand2);font-size:1.05rem;margin-bottom:6px}
+  .att{margin:8px 0;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff}
+  .att .meta{font-size:.82rem;color:var(--muted);margin-top:4px}
+  .muted{color:var(--muted);font-size:.92rem;margin:6px 0}
+  footer{text-align:center;color:#94a3b8;font-size:.8rem;margin:24px 0 10px;line-height:1.7}
+  @media(max-width:480px){header h1{font-size:1.45rem}.deal .dest{font-size:1.15rem}.prices .p9{font-size:1.2rem}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <h1>✈️ סוכן הטיסות המשפחתי</h1>
-    <p>מזרח אירופה · טיסה ישירה · הלוך 10-15, חזור ערב · 4 מבוגרים + 5 ילדים</p>
-    <p id="upd"></p>
+    <div class="sub"><span>🌍 מזרח אירופה</span><span>🛫 טיסה ישירה</span><span>🌅 בוקר→ערב</span><span>👨‍👩‍👧‍👦 4 + 5</span></div>
+    <div class="upd" id="upd"></div>
   </header>
 
   <div class="tabs">
