@@ -265,8 +265,9 @@ APP_TEMPLATE = r"""<!doctype html>
   .weather{background:#fff8eb;border:1px solid #fde9c8;border-radius:9px;padding:6px 10px;color:#92660a;font-size:.83rem;font-weight:500;margin-bottom:5px}
   .bag{color:var(--muted);font-size:.82rem}
   .c-book{flex:0 0 auto;margin-inline-start:auto}
-  .book{display:block;text-align:center;background:linear-gradient(135deg,#1e6fd9,#0ea5b7);color:#fff;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:800;white-space:nowrap;transition:.2s}
+  .book{display:block;width:100%;text-align:center;background:linear-gradient(135deg,#1e6fd9,#0ea5b7);color:#fff;padding:10px 18px;border:0;border-radius:10px;text-decoration:none;font-family:inherit;font-size:.95rem;font-weight:800;white-space:nowrap;cursor:pointer;transition:.2s}
   .book:hover{filter:brightness(1.08)}
+  .book.plan{background:linear-gradient(135deg,#7c3aed,#db2777);margin-top:6px}
   @media(max-width:760px){
     .deal{flex-direction:column;align-items:stretch;gap:8px;padding:14px 16px}
     .c-dest,.c-price,.c-route,.c-weather,.c-book{flex:none}
@@ -447,7 +448,8 @@ function renderDeals(){
         +'<div class="warn">⚠️ אומדן ממאגר — המחיר הסופי ל-9 בלינק (לרוב גבוה יותר)</div></div>'
       +'<div class="c-route">🛫 '+fmtDate(d.dep_date)+' '+d.dep_time+'<br>🛬 '+fmtDate(d.ret_date)+' '+d.ret_time+' <span class="nights">'+d.nights+' לילות</span><br>⏱️ '+fmtDur(d.dur_to)+' → '+fmtDur(d.dur_back)+' · 🏢 '+esc(d.airline)+' · ישיר</div>'
       +'<div class="c-weather">'+wl+'<div class="bag">🧳 '+esc(d.bag)+'</div></div>'
-      +'<div class="c-book"><a class="book" href="'+d.link+'" target="_blank">להזמנה ➜</a></div>'
+      +'<div class="c-book"><a class="book" href="'+d.link+'" target="_blank">להזמנה ➜</a>'
+        +'<button class="book plan" onclick="planFromDeal(\''+d.code+'\',\''+d.dep_date+'\',\''+d.dep_time+'\',\''+d.ret_date+'\',\''+d.ret_time+'\','+(d.dur_to||0)+')">🗺️ תכנן מסלול</button></div>'
     +'</div>';
   });
   html+='</div>';
@@ -471,6 +473,8 @@ function initPlan(){
   document.getElementById('pDep').value='2026-09-26';
 }
 function daysBetween(a,b){return Math.round((new Date(b)-new Date(a))/86400000);}
+function addMin(t,m){var p=(t||'12:00').split(':');var tot=(+p[0])*60+(+p[1])+(+m||0);tot=((tot%1440)+1440)%1440;var h=Math.floor(tot/60),mm=tot%60;return (h<10?'0':'')+h+':'+(mm<10?'0':'')+mm;}
+function planFromDeal(code,dd,dt,rd,rt,dur){showTab(2);document.getElementById('pDest').value=code;document.getElementById('pArr').value=dd;document.getElementById('pArrT').value=addMin(dt,dur);document.getElementById('pDep').value=rd;document.getElementById('pDepT').value=rt;buildPlan();var o=document.getElementById('planOut');if(o)o.scrollIntoView({behavior:'smooth'});}
 function buildPlan(){
   var code=document.getElementById('pDest').value, it=D.ITIN[code];
   var arr=document.getElementById('pArr').value, dep=document.getElementById('pDep').value;
@@ -495,29 +499,38 @@ function buildPlan(){
     return (b.wow?1:0)-(a.wow?1:0);  /* "חובה לא לפספס" קודם */
   });
 
-  /* חלוקה ליומים */
+  /* חלוקה ליומים — יום אחרון לקניות, כל האטרקציות הטובות בימים שלפניו */
   var pool=atts.slice(), days=[];
   for(var i=0;i<nDays;i++){
     var isArr=(i===0), isDep=(i===nDays-1 && nDays>1);
-    var picks=[];
-    var max=(isArr||isDep)?1:2;
+    if(isDep){ days.push({dep:true,picks:[]}); continue; }
+    var picks=[]; var max=isArr?1:2;
     while(picks.length<max && pool.length){ picks.push(pool.shift()); }
-    days.push({arr:isArr,dep:isDep,picks:picks});
+    days.push({arr:isArr,picks:picks});
   }
+  /* אם נשארו אטרקציות — מפזרים לימים שאינם יום החזרה (כדי לכלול את כולן) */
+  var gi=0;
+  while(pool.length && gi<300){ var dr=days[gi%days.length]; if(!dr.dep)dr.picks.push(pool.shift()); gi++; }
 
   var html='<div class="card"><h3>🗺️ מסלול ל'+esc(it.name)+' · '+nDays+' ימים</h3>';
   html+='<div class="muted">לינה מומלצת: '+esc(it.lodging)+'</div>';
   if(budget)html+='<div class="muted">💰 תקציב טיולים שציינת: ~'+nf(+budget)+'₪ — שובץ לפי רמת עלות (₪=זול, ₪₪=בינוני).</div>';
   if(car==='no')html+='<div class="muted">🚗 בלי רכב — אטרקציות מחוץ לעיר סומנו (עדיף טיול מאורגן/מונית).</div>';
   if(wish)html+='<div class="muted">📝 הבקשות שלך נלקחו בחשבון: "'+esc(wish)+'"</div>';
+  html+='<div class="muted">🔄 <b>מסלול מעגלי:</b> יוצאים מהלינה כל בוקר וחוזרים אליה בערב — נוח עם ילדים.</div>';
 
   days.forEach(function(day,idx){
     var lbl='יום '+(idx+1);
     var note='';
-    if(day.arr)note=' (יום הגעה · נחיתה '+arrT+' — פעילות קלה ליד הלינה + ארוחה)';
-    if(day.dep)note=' (יום חזרה · המראה '+depT+' — אטרקציה בבוקר ואז שדה תעופה)';
+    if(day.arr)note=' (יום הגעה · נחיתה משוערת '+arrT+')';
+    if(day.dep)note=' (יום חזרה · המראה '+depT+')';
     html+='<div class="day"><h4>'+lbl+esc(note)+'</h4>';
-    if(!day.picks.length){html+='<div class="muted">יום חופשי — שוטטות, קניות, או חזרה לאטרקציה אהובה.</div>';}
+    if(day.arr)html+='<div class="att">🛬 <b>הגעה והתארגנות</b><div>מעבר משדה התעופה ללינה, צ\'ק-אין, ארוחה ושיטוט קצר באזור — יום רגוע אחרי הטיסה.</div></div>';
+    if(day.dep){
+      html+='<div class="att">🛍️ <b>בוקר: קניות בקניון</b><div>בוקר נינוח, קניות וסובניר בקניון המרכזי, וארוחת פרידה.</div></div>';
+      html+='<div class="att">✈️ <b>לשדה התעופה</b><div>יציאה לשדה — להגיע כ-3 שעות לפני ההמראה ('+depT+') לטיסה בינלאומית.</div></div>';
+    }
+    if(!day.picks.length && !day.arr && !day.dep){html+='<div class="muted">יום חופשי — שוטטות, חזרה לאטרקציה אהובה או חוף.</div>';}
     day.picks.forEach(function(a){
       var carNote=(car==='no'&&a.car)?' · 🚗 עדיף רכב/טיול מאורגן':'';
       var wowB=a.wow?'<span style="background:#ffd84d;color:#6b4e00;border-radius:6px;padding:1px 6px;font-size:.75rem;font-weight:800">⭐ חובה</span> ':'';
