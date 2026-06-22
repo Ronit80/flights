@@ -228,6 +228,8 @@ APP_TEMPLATE = r"""<!doctype html>
   .modal .big{font-size:1.05rem;font-weight:800;color:#0ea5b7;text-align:center}
   .card{background:var(--card);border-radius:22px;padding:24px;margin-bottom:18px;border:1px solid var(--line);box-shadow:0 12px 34px -18px rgba(2,32,71,.28)}
   .card h3{font-weight:800;font-size:1.25rem;margin-bottom:14px}
+  .collapsible{cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none}
+  .pm{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#1e6fd9,#0ea5b7);color:#fff;font-size:1.4rem;font-weight:800;line-height:1;flex:0 0 auto;box-shadow:0 4px 10px -3px rgba(14,116,144,.5)}
   label{display:block;font-size:.85rem;font-weight:500;color:var(--muted);margin:12px 0 5px}
   input,select,textarea{width:100%;padding:12px 13px;border:1.5px solid var(--line);border-radius:12px;font-family:inherit;font-size:.97rem;background:#fbfdff;color:var(--ink);transition:.15s}
   input:focus,select:focus,textarea:focus{outline:0;border-color:var(--brand);box-shadow:0 0 0 4px rgba(14,165,183,.16)}
@@ -286,19 +288,21 @@ APP_TEMPLATE = r"""<!doctype html>
       <div class="lastupd">🕐 הנתונים עודכנו לאחרונה: <span id="lastupd"></span></div>
     </div>
     <div class="card">
-      <h3>בחרי יעדים ותאריכים</h3>
-      <label>יעדים (אפשר לבחור כמה):</label>
-      <div id="destChecks" class="checks"></div>
-      <div class="row">
-        <div><label>מתאריך</label><input type="date" id="dFrom" onchange="renderDeals()"></div>
-        <div><label>עד תאריך</label><input type="date" id="dTo" onchange="renderDeals()"></div>
+      <h3 class="collapsible" onclick="toggleSection('filterBody',this)">בחרי יעדים ותאריכים <span class="pm">−</span></h3>
+      <div class="section-body" id="filterBody">
+        <label>יעדים (אפשר לבחור כמה):</label>
+        <div id="destChecks" class="checks"></div>
+        <div class="row">
+          <div><label>מתאריך</label><input type="date" id="dFrom" onchange="renderDeals()"></div>
+          <div><label>עד תאריך</label><input type="date" id="dTo" onchange="renderDeals()"></div>
+        </div>
+        <div class="row">
+          <div><label>מינ' לילות</label><input type="number" id="nMin" value="6" min="1" onchange="renderDeals()"></div>
+          <div><label>מקס' לילות</label><input type="number" id="nMax" value="11" min="1" onchange="renderDeals()"></div>
+        </div>
+        <button class="btn go" onclick="refreshNow()">🔄 רענן תוצאות</button>
+        <a class="btn wa" id="waBtn" href="#" target="_blank">📲 שתפו בוואטסאפ</a>
       </div>
-      <div class="row">
-        <div><label>מינ' לילות</label><input type="number" id="nMin" value="6" min="1" onchange="renderDeals()"></div>
-        <div><label>מקס' לילות</label><input type="number" id="nMax" value="11" min="1" onchange="renderDeals()"></div>
-      </div>
-      <button class="btn go" onclick="refreshNow()">🔄 רענן תוצאות</button>
-      <a class="btn wa" id="waBtn" href="#" target="_blank">📲 שתפו בוואטסאפ</a>
     </div>
     <div id="dealsOut"></div>
   </div>
@@ -364,6 +368,7 @@ function esc(s){var e=document.createElement('div');e.textContent=s;return e.inn
 function refreshNow(){renderDeals();showPopup();}
 function showPopup(){document.getElementById('popupTime').textContent=D.TODAY;document.getElementById('popup').classList.add('show');}
 function closePopup(){document.getElementById('popup').classList.remove('show');}
+function toggleSection(id,h){var b=document.getElementById(id);var pm=h.querySelector('.pm');if(b.style.display==='none'){b.style.display='';if(pm)pm.textContent='−';}else{b.style.display='none';if(pm)pm.textContent='+';}}
 function nf(x){return Math.round(x).toLocaleString('he-IL');}
 function fmtDur(m){if(!m)return '';var h=Math.floor(m/60),r=m%60;return r?(h+"ש' "+r+"ד'"):(h+"ש'");}
 var DOW=['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','שבת'];
