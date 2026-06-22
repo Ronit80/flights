@@ -1,0 +1,24 @@
+{
+  "_note": "הגדרות בלבד — בלי מפתחות סודיים. ה-token נשמר ב-GitHub Secrets.",
+
+  "search": {
+    "origin": "TLV",
+    "destinations": [
+      { "code": "BUD", "name": "בודפשט" },
+      { "code": "PRG", "name": "פראג" },
+      { "code": "SOF", "name": "סופיה" }
+    ],
+    "adults": 4,
+    "children_ages": [8, 9, 10, 11, 11],
+    "window_start": "2026-09-24",
+    "window_end": "2026-10-04",
+    "min_nights": 5,
+    "max_nights": 10,
+    "nonstop_only": true,
+    "outbound_earliest_hour": 10,
+    "outbound_latest_hour": 15,
+    "return_earliest_hour": 17,
+    "currency": "ils",
+    "top_per_destination": 2
+  }
+}
