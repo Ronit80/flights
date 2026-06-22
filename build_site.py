@@ -10,7 +10,7 @@
 import json
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flights import find_best
 from weather import monthly_climate
@@ -31,7 +31,8 @@ def main():
         sys.exit("חסר TRAVELPAYOUTS_TOKEN (הגדירי אותו ב-GitHub Secrets).")
     cfg["travelpayouts"] = {"token": token}
 
-    today = datetime.now().strftime("%d/%m/%Y")
+    # חותמת זמן בשעון ישראל (UTC+3, קיץ)
+    today = (datetime.utcnow() + timedelta(hours=3)).strftime("%d/%m/%Y %H:%M")
     print(f"[{today}] מחפש טיסות...")
     results, _ = find_best(cfg)
 
@@ -60,7 +61,10 @@ def main():
         print(f"  {o['dest']}: ~{o['total']:,} | {o['dep_date']}→{o['ret_date']}")
 
     pw = os.environ.get("GMAIL_APP_PASSWORD")
-    if pw:
+    send_email_now = os.environ.get("SEND_EMAIL", "true").lower() == "true"
+    if pw and not send_email_now:
+        print("ℹ️ ריצת רענון (לא 8:00) — מדלג על מייל, הדף עודכן.")
+    elif pw:
         from email_send import send_email
         sender = os.environ.get("EMAIL_SENDER", "")
         recips = [r.strip() for r in os.environ.get("EMAIL_RECIPIENTS", "").split(",") if r.strip()] or [sender]

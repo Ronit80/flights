@@ -253,15 +253,17 @@ APP_TEMPLATE = r"""<!doctype html>
       <label>יעדים (אפשר לבחור כמה):</label>
       <div id="destChecks" class="checks"></div>
       <div class="row">
-        <div><label>מתאריך</label><input type="date" id="dFrom"></div>
-        <div><label>עד תאריך</label><input type="date" id="dTo"></div>
+        <div><label>מתאריך</label><input type="date" id="dFrom" onchange="renderDeals()"></div>
+        <div><label>עד תאריך</label><input type="date" id="dTo" onchange="renderDeals()"></div>
       </div>
       <div class="row">
-        <div><label>מינ' לילות</label><input type="number" id="nMin" value="6" min="1"></div>
-        <div><label>מקס' לילות</label><input type="number" id="nMax" value="11" min="1"></div>
+        <div><label>מינ' לילות</label><input type="number" id="nMin" value="6" min="1" onchange="renderDeals()"></div>
+        <div><label>מקס' לילות</label><input type="number" id="nMax" value="11" min="1" onchange="renderDeals()"></div>
       </div>
-      <button class="btn go" onclick="renderDeals()">חיפוש 🔎</button>
+      <button class="btn go" onclick="renderDeals()">🔄 רענן תוצאות</button>
       <a class="btn wa" id="waBtn" href="#" target="_blank">📲 שתפו בוואטסאפ</a>
+      <div class="muted" style="text-align:center;margin-top:10px">⚡ התוצאות מתעדכנות מיד לפי הבחירה שלך. הנתונים נמשכים מהשרת 3× ביום.<br>
+        <a href="#" onclick="location.reload();return false" style="color:#1e6fd9;font-weight:700">↻ משוך נתונים עדכניים מהשרת</a></div>
     </div>
     <div id="dealsOut"></div>
   </div>
@@ -324,7 +326,7 @@ function scoreOf(d){var w=estW(d);var f=w?w.frac:0.2;return d.total*(1+0.3*f);}
 function initDeals(){
   var box=document.getElementById('destChecks'); box.innerHTML='';
   D.DESTS.forEach(function(t){
-    box.innerHTML += '<label><input type="checkbox" class="dchk" value="'+t.code+'" checked> '+esc(t.name)+'</label>';
+    box.innerHTML += '<label><input type="checkbox" class="dchk" value="'+t.code+'" checked onchange="renderDeals()"> '+esc(t.name)+'</label>';
   });
   var dates=D.DEALS.map(function(d){return d.dep_date;}).sort();
   document.getElementById('dFrom').value = dates[0] || '2026-07-25';
