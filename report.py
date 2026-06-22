@@ -1,9 +1,11 @@
-"""בניית דוח HTML יפה + טקסט לשיתוף בוואטסאפ.
-מציג את N הדילים הזולים ביותר, ממוינים מהזול ליקר, כולל מזג אוויר צפוי."""
+# -*- coding: utf-8 -*-
+"""בניית דוח: אפליקציית HTML אינטראקטיבית (2 טאבים) לאתר + גרסת מייל סטטית."""
 import html as _html
+import json
 import urllib.parse
 
 TOP_N = 7
+RAIN_WEIGHT = 0.3  # קודם זול, ואז גשם (משקל מתון לגשם)
 
 BAG_HINT = {
     "Wizz Air": "מזוודה לא כלולה — תוספת ~€40-110 לכיוון",
@@ -24,32 +26,43 @@ def _bag(airline):
 
 
 def flatten_top(results, limit=TOP_N):
-    """כל הדילים מכל היעדים, ממוין מהזול ליקר, top N (עם שם וקוד יעד)."""
+    flat = flatten_all(results)
+    return flat[:limit]
+
+
+def flatten_all(results):
     flat = []
     for d in results:
         for o in d.get("offers", []):
             flat.append({**o, "dest": d["name"], "code": d["code"]})
     flat.sort(key=lambda x: x["total"])
-    return flat[:limit]
+    return flat
 
 
 def empty_dests(results):
     return [d["name"] for d in results if not d.get("offers")]
 
 
-# --- דירוג משולב: זול + יבש ---
-RAIN_WEIGHT = 0.5  # כמה מזג האוויר משפיע (0=מחיר בלבד, 1=השפעה חזקה)
+def estimate_weather(deal, climate):
+    """הערכת מזג אוויר לדיל מתוך אקלים חודשי."""
+    cc = climate.get(deal["code"]) or {}
+    m = str(int(deal["dep_date"][5:7]))
+    c = cc.get(m)
+    if not c:
+        return None
+    return {"tmax": c["tmax"], "tmin": c["tmin"],
+            "rainy_days": round(c["rain_frac"] * deal["nights"]),
+            "days": deal["nights"], "frac": c["rain_frac"]}
 
 
 def _rain_ratio(o):
     w = o.get("weather")
     if w and w.get("days"):
         return w["rainy_days"] / max(w["days"], 1)
-    return 0.20  # ברירת מחדל ניטרלית כשאין נתון מזג אוויר
+    return 0.20
 
 
 def combined_score(o):
-    """ציון נמוך = טוב יותר. כל יחס גשם מייקר את הדיל באופן יחסי."""
     return o["total"] * (1 + RAIN_WEIGHT * _rain_ratio(o))
 
 
@@ -57,22 +70,7 @@ def rank_combined(deals, top_n=TOP_N):
     return sorted(deals, key=combined_score)[:top_n]
 
 
-def _weather_bits(w):
-    """מחזיר (אימוג'י, תיאור, שורת מזג אוויר) מתוך נתוני האקלים."""
-    if not w:
-        return "", ""
-    days = max(w.get("days", 0), 1)
-    ratio = w["rainy_days"] / days
-    if ratio <= 0.15:
-        tag = "☀️ מעט גשם"
-    elif ratio <= 0.35:
-        tag = "⛅ גשם מתון"
-    else:
-        tag = "🌧️ גשום יחסית"
-    line = (f"🌡️ ~{w['tmax']}°/{w['tmin']}° · {tag} "
-            f"(~{w['rainy_days']} ימי גשם צפויים מתוך {days})")
-    return tag, line
-
+# ---------- שיתוף + מייל סטטי ----------
 
 def build_summary_text(deals, today):
     lines = [f"✈️ טיסות משפחתיות זולות — {today}", "(טיסה ישירה, 4 מבוגרים + 5 ילדים)", ""]
@@ -94,114 +92,324 @@ def wa_share_link(text):
     return "https://wa.me/?text=" + urllib.parse.quote(text)
 
 
-def _deal_card(o, rank):
+def _email_card(o, rank):
     medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣"]
     medal = medals[rank] if rank < len(medals) else f"{rank+1}."
-    booking = _html.escape(o["link"])
     cur = o["currency"]
-    _, weather_line = _weather_bits(o.get("weather"))
-    weather_html = f'<div class="weather">{weather_line}</div>' if weather_line else ""
+    w = o.get("weather")
+    weather = (f'<div style="background:#fff7e6;border-radius:8px;padding:7px 10px;color:#6b5a2e;font-size:14px;margin:6px 0">'
+               f'🌡️ ~{w["tmax"]}°/{w["tmin"]}° · 🌧️ ~{w["rainy_days"]} ימי גשם צפויים (מתוך {w["days"]})</div>') if w else ""
     return f"""
-      <div class="deal">
-        <div class="deal-top">
-          <span class="rank">{medal}</span>
-          <span class="dest">{_html.escape(o['dest'])}</span>
+      <div style="border:1px solid #e3ebf2;border-radius:12px;padding:14px;margin-top:12px">
+        <div style="font-size:20px;font-weight:800">{medal} {_html.escape(o['dest'])}</div>
+        <div style="background:#f4f9fc;border-radius:10px;padding:10px;margin:8px 0">
+          <div>🎫 מחיר לכרטיס אחד: <b>~{o['per_person']:,} {cur}</b></div>
+          <div style="font-size:19px;color:#1e6091">👨‍👩‍👧‍👦 סה"כ ל-9 נוסעים: <b>~{o['total']:,} {cur}</b></div>
         </div>
-        <div class="prices">
-          <div class="p1">🎫 מחיר לכרטיס אחד: <b>~{o['per_person']:,} {cur}</b></div>
-          <div class="p9">👨‍👩‍👧‍👦 סה"כ ל-9 נוסעים: <b>~{o['total']:,} {cur}</b></div>
-        </div>
-        <div class="route">
-          <span>🛫 {o['dep_date']} · {o['dep_time']}</span>
-          <span class="arrow">→</span>
-          <span>🛬 {o['ret_date']} · {o['ret_time']}</span>
-          <span class="nights">{o['nights']} לילות</span>
-        </div>
-        {weather_html}
-        <div class="airline">🏢 {_html.escape(o['airline'])} · טיסה ישירה</div>
-        <div class="bag">🧳 {_bag(o['airline'])}</div>
-        <a class="btn book" href="{booking}" target="_blank">להזמנה ולמחיר מדויק ➜</a>
+        <div>🛫 {o['dep_date']} {o['dep_time']} → 🛬 {o['ret_date']} {o['ret_time']} ({o['nights']} לילות)</div>
+        {weather}
+        <div style="color:#50606f">🏢 {_html.escape(o['airline'])} · טיסה ישירה · 🧳 {_bag(o['airline'])}</div>
+        <a href="{_html.escape(o['link'])}" style="display:inline-block;margin-top:8px;background:#168aad;color:#fff;padding:9px 14px;border-radius:8px;text-decoration:none;font-weight:700">להזמנה ולמחיר מדויק ➜</a>
       </div>"""
 
 
-def build_html(deals, empties, today):
-    summary = build_summary_text(deals, today)
-    wa = _html.escape(wa_share_link(summary))
+def build_email_html(deals, empties, today):
+    cards = "".join(_email_card(o, i) for i, o in enumerate(deals)) if deals else \
+        '<p style="color:#7a8a99">עדיין אין מחירים לתאריכים אלה — נמשיך לבדוק כל יום ✓</p>'
+    pend = ("<p style='color:#8a99a8;font-size:13px'>⏳ ממתינים למחירים: " + _html.escape("، ".join(empties)) + "</p>") if empties else ""
+    return f"""<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"></head>
+<body style="font-family:Arial,sans-serif;background:#f0f4f8;color:#1a2b3c;padding:12px">
+  <div style="max-width:640px;margin:0 auto">
+    <div style="background:#1e6091;color:#fff;border-radius:14px;padding:18px;text-align:center">
+      <h1 style="margin:0">✈️ סוכן הטיסות המשפחתי</h1>
+      <p style="margin:6px 0 0;opacity:.9">מזרח אירופה · ישיר · 4 מבוגרים + 5 ילדים · עודכן {today}</p>
+    </div>
+    <h2 style="color:#1e6091">{len(deals)} הדילים הכי משתלמים (זול + פחות גשם)</h2>
+    {cards}
+    {pend}
+    <p style="color:#8a99a8;font-size:12px;margin-top:14px">מחירים אומדן (×9) ממאגר Aviasales. מזג אוויר = ממוצע אקלימי (הערכה). לחצו "להזמנה" למחיר סופי.</p>
+    <p style="text-align:center"><a href="https://ronit80.github.io/flights/" style="color:#168aad;font-weight:700">פתחו את האפליקציה המלאה (בחירת יעדים, תאריכים ותכנון מסלול) ➜</a></p>
+  </div>
+</body></html>"""
 
-    if deals:
-        cards = "".join(_deal_card(o, i) for i, o in enumerate(deals))
-        body = f'<section class="list"><h2>{len(deals)} הדילים הכי משתלמים (שילוב מחיר נמוך + מעט גשם)</h2>{cards}</section>'
-    else:
-        body = """<section class="list"><p class="none">
-          עדיין אין מחירים שמורים לתאריכים שלך (רחוק מהיום).
-          הדף בודק כל בוקר ויציג דילים ברגע שיופיעו ✓</p></section>"""
 
-    pending = ""
-    if empties:
-        pending = ('<p class="pending">⏳ עדיין ממתינים למחירים: '
-                   + _html.escape("، ".join(empties)) + " (יתמלאו ככל שמתקרבים לתאריך)</p>")
+# ---------- אפליקציה אינטראקטיבית (אתר) ----------
 
-    return f"""<!doctype html>
+def _safe_json(obj):
+    return json.dumps(obj, ensure_ascii=False).replace("</", "<\\/")
+
+
+def build_app_html(all_deals, climate, dests, itin, today):
+    deals_js = []
+    for o in all_deals:
+        deals_js.append({
+            "dest": o["dest"], "code": o["code"], "total": o["total"],
+            "per_person": o["per_person"], "currency": o["currency"],
+            "dep_date": o["dep_date"], "dep_time": o["dep_time"],
+            "ret_date": o["ret_date"], "ret_time": o["ret_time"],
+            "nights": o["nights"], "airline": o["airline"],
+            "bag": _bag(o["airline"]), "link": o["link"],
+        })
+    data = {
+        "DEALS": deals_js, "CLIMATE": climate,
+        "DESTS": [{"code": d["code"], "name": d["name"]} for d in dests],
+        "ITIN": itin, "TODAY": today,
+    }
+    return APP_TEMPLATE.replace("__DATA__", _safe_json(data))
+
+
+APP_TEMPLATE = r"""<!doctype html>
 <html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>סוכן הטיסות המשפחתי — {today}</title>
+<title>סוכן הטיסות המשפחתי</title>
 <style>
-  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-  body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f0f4f8; color: #1a2b3c; padding: 16px; }}
-  .wrap {{ max-width: 680px; margin: 0 auto; }}
-  header {{ background: linear-gradient(135deg, #1e6091, #168aad); color: #fff;
-           border-radius: 18px; padding: 24px; text-align: center; box-shadow: 0 6px 20px rgba(0,0,0,.12); }}
-  header h1 {{ font-size: 1.5rem; }}
-  header p {{ opacity: .92; margin-top: 6px; font-size: .9rem; }}
-  .share {{ display: flex; gap: 10px; margin: 16px 0; }}
-  .share a {{ flex: 1; text-align: center; padding: 13px; border-radius: 12px; text-decoration: none;
-             font-weight: 700; color: #fff; }}
-  .wa {{ background: #25d366; }}
-  .list {{ background: #fff; border-radius: 16px; padding: 18px; box-shadow: 0 3px 12px rgba(0,0,0,.06); }}
-  .list > h2 {{ font-size: 1.15rem; margin-bottom: 12px; color: #1e6091; }}
-  .list .none {{ color: #7a8a99; font-size: .92rem; }}
-  .deal {{ border: 1px solid #e3ebf2; border-radius: 12px; padding: 14px; margin-top: 12px; }}
-  .deal-top {{ display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }}
-  .rank {{ font-size: 1.3rem; }}
-  .deal-top .dest {{ font-size: 1.2rem; font-weight: 800; }}
-  .prices {{ background: #f4f9fc; border-radius: 10px; padding: 10px 12px; margin: 8px 0; }}
-  .prices .p1 {{ font-size: .95rem; color: #50606f; }}
-  .prices .p9 {{ font-size: 1.2rem; color: #1e6091; margin-top: 2px; }}
-  .prices b {{ font-weight: 800; }}
-  .route {{ display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; font-size: .92rem; }}
-  .route .arrow {{ color: #168aad; font-weight: 700; }}
-  .route .nights {{ background: #e8f3f8; color: #1e6091; padding: 2px 8px; border-radius: 8px; font-size: .82rem; }}
-  .weather {{ background: #fff7e6; border-radius: 8px; padding: 7px 10px; font-size: .9rem; color: #6b5a2e; margin: 6px 0; }}
-  .airline {{ color: #50606f; font-size: .9rem; margin-bottom: 4px; }}
-  .bag {{ font-size: .88rem; color: #50606f; margin-bottom: 10px; }}
-  .btn {{ display: block; text-align: center; padding: 11px; border-radius: 10px;
-         text-decoration: none; font-weight: 700; }}
-  .book {{ background: #168aad; color: #fff; }}
-  .pending {{ color: #8a99a8; font-size: .85rem; margin-top: 14px; text-align: center; }}
-  footer {{ text-align: center; color: #8a99a8; font-size: .8rem; margin: 18px 0; line-height: 1.6; }}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1a2b3c;padding:14px}
+  .wrap{max-width:720px;margin:0 auto}
+  header{background:linear-gradient(135deg,#1e6091,#168aad);color:#fff;border-radius:18px;padding:22px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.12)}
+  header h1{font-size:1.5rem}
+  header p{opacity:.92;margin-top:6px;font-size:.88rem}
+  .tabs{display:flex;gap:8px;margin:16px 0}
+  .tabs button{flex:1;padding:13px;border:0;border-radius:12px;font-weight:800;font-size:1rem;cursor:pointer;background:#dde7ef;color:#1e6091}
+  .tabs button.active{background:#168aad;color:#fff}
+  .panel{display:none}
+  .panel.active{display:block}
+  .card{background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 3px 12px rgba(0,0,0,.06)}
+  .card h3{color:#1e6091;margin-bottom:10px}
+  label{display:block;font-size:.85rem;color:#50606f;margin:8px 0 3px}
+  input,select,textarea{width:100%;padding:9px;border:1px solid #cdd9e4;border-radius:9px;font-family:inherit;font-size:.95rem}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .row>div{flex:1;min-width:130px}
+  .checks{display:flex;flex-wrap:wrap;gap:8px}
+  .checks label{display:flex;align-items:center;gap:6px;background:#eef4f9;padding:7px 11px;border-radius:9px;margin:0;cursor:pointer;font-size:.9rem;color:#1a2b3c}
+  .checks input{width:auto}
+  .btn{display:block;width:100%;text-align:center;padding:12px;border:0;border-radius:11px;font-weight:800;font-size:1rem;color:#fff;cursor:pointer;text-decoration:none;margin-top:12px}
+  .btn.go{background:#168aad}
+  .btn.wa{background:#25d366}
+  .deal{border:1px solid #e3ebf2;border-radius:12px;padding:14px;margin-top:12px}
+  .deal .top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .deal .rank{font-size:1.2rem}.deal .dest{font-size:1.15rem;font-weight:800}
+  .prices{background:#f4f9fc;border-radius:10px;padding:10px;margin:8px 0}
+  .prices .p9{font-size:1.15rem;color:#1e6091}
+  .route{font-size:.9rem;margin:6px 0}
+  .nights{background:#e8f3f8;color:#1e6091;padding:2px 8px;border-radius:8px;font-size:.8rem}
+  .weather{background:#fff7e6;border-radius:8px;padding:7px 10px;color:#6b5a2e;font-size:.88rem;margin:6px 0}
+  .bag{color:#50606f;font-size:.85rem;margin:4px 0}
+  .book{display:inline-block;margin-top:6px;background:#168aad;color:#fff;padding:9px 14px;border-radius:8px;text-decoration:none;font-weight:700}
+  .day{border-right:4px solid #168aad;background:#f7fbfd;border-radius:10px;padding:12px;margin-top:10px}
+  .day h4{color:#1e6091}
+  .att{margin:6px 0;padding:8px;border:1px solid #e3ebf2;border-radius:8px}
+  .att .meta{font-size:.8rem;color:#7a8a99;margin-top:3px}
+  .muted{color:#7a8a99;font-size:.9rem}
+  footer{text-align:center;color:#8a99a8;font-size:.78rem;margin:18px 0;line-height:1.6}
 </style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <h1>✈️ סוכן הטיסות המשפחתי</h1>
-      <p>מזרח אירופה · טיסה ישירה · הלוך 10-15, חזור ערב · 4 מבוגרים + 5 ילדים</p>
-      <p>עודכן: {today}</p>
-    </header>
+<div class="wrap">
+  <header>
+    <h1>✈️ סוכן הטיסות המשפחתי</h1>
+    <p>מזרח אירופה · טיסה ישירה · הלוך 10-15, חזור ערב · 4 מבוגרים + 5 ילדים</p>
+    <p id="upd"></p>
+  </header>
 
-    <div class="share">
-      <a class="wa" href="{wa}" target="_blank">📲 שתפו בוואטסאפ</a>
-    </div>
-
-    {body}
-    {pending}
-
-    <footer>
-      המחירים אומדן (מחיר נוסע ×9) ממאגר Aviasales — לחצו "להזמנה" למחיר סופי ולבדיקת מזוודה.<br>
-      מזג האוויר הוא ממוצע אקלימי מ-5 השנים האחרונות (הערכה, לא תחזית). · הופק אוטומטית 🤖
-    </footer>
+  <div class="tabs">
+    <button id="tab1btn" class="active" onclick="showTab(1)">🔎 חיפוש דילים</button>
+    <button id="tab2btn" onclick="showTab(2)">🗺️ תכנון מסלול</button>
   </div>
+
+  <!-- טאב 1 -->
+  <div id="panel1" class="panel active">
+    <div class="card">
+      <h3>בחרי יעדים ותאריכים</h3>
+      <label>יעדים (אפשר לבחור כמה):</label>
+      <div id="destChecks" class="checks"></div>
+      <div class="row">
+        <div><label>מתאריך</label><input type="date" id="dFrom"></div>
+        <div><label>עד תאריך</label><input type="date" id="dTo"></div>
+      </div>
+      <div class="row">
+        <div><label>מינ' לילות</label><input type="number" id="nMin" value="6" min="1"></div>
+        <div><label>מקס' לילות</label><input type="number" id="nMax" value="11" min="1"></div>
+      </div>
+      <button class="btn go" onclick="renderDeals()">חיפוש 🔎</button>
+      <a class="btn wa" id="waBtn" href="#" target="_blank">📲 שתפו בוואטסאפ</a>
+    </div>
+    <div id="dealsOut"></div>
+  </div>
+
+  <!-- טאב 2 -->
+  <div id="panel2" class="panel">
+    <div class="card">
+      <h3>תכנון מסלול לילדים (8-12)</h3>
+      <label>יעד</label><select id="pDest"></select>
+      <div class="row">
+        <div><label>תאריך הגעה</label><input type="date" id="pArr"></div>
+        <div><label>שעת נחיתה</label><input type="time" id="pArrT" value="14:00"></div>
+      </div>
+      <div class="row">
+        <div><label>תאריך חזרה</label><input type="date" id="pDep"></div>
+        <div><label>שעת המראה</label><input type="time" id="pDepT" value="21:00"></div>
+      </div>
+      <div class="row">
+        <div><label>תקציב לטיולים (₪, אופציונלי)</label><input type="number" id="pBudget" placeholder="לדוגמה 5000"></div>
+        <div><label>רכב שכור?</label><select id="pCar"><option value="yes">כן</option><option value="no">לא</option></select></div>
+      </div>
+      <label>מה אתם אוהבים? (טקסט חופשי)</label>
+      <textarea id="pWish" rows="3" placeholder="לדוגמה: פארקי מים, גני חיות, פחות הליכה, אוכל כשר..."></textarea>
+      <button class="btn go" onclick="buildPlan()">בנה לי מסלול 🗺️</button>
+      <a class="btn wa" id="planWa" href="#" target="_blank">📲 קבל תוכנית מותאמת אישית ממני</a>
+    </div>
+    <div id="planOut"></div>
+  </div>
+
+  <footer>
+    מחירים אומדן (×9) ממאגר Aviasales — לחצו "להזמנה" למחיר סופי ולמזוודה.<br>
+    מזג אוויר = ממוצע אקלימי 5 שנים (הערכה, לא תחזית). · הופק אוטומטית 🤖
+  </footer>
+</div>
+
+<script>
+var D = __DATA__;
+document.getElementById('upd').textContent = 'עודכן: ' + D.TODAY;
+
+/* ---------- כללי ---------- */
+function showTab(n){
+  document.getElementById('panel1').classList.toggle('active', n===1);
+  document.getElementById('panel2').classList.toggle('active', n===2);
+  document.getElementById('tab1btn').classList.toggle('active', n===1);
+  document.getElementById('tab2btn').classList.toggle('active', n===2);
+}
+function esc(s){var e=document.createElement('div');e.textContent=s;return e.innerHTML;}
+function nf(x){return Math.round(x).toLocaleString('he-IL');}
+
+/* ---------- מזג אוויר + ניקוד ---------- */
+function estW(d){
+  var cc=D.CLIMATE[d.code]; if(!cc) return null;
+  var m=String(parseInt(d.dep_date.slice(5,7),10)); var c=cc[m]; if(!c) return null;
+  return {tmax:c.tmax,tmin:c.tmin,rainy:Math.round(c.rain_frac*d.nights),days:d.nights,frac:c.rain_frac};
+}
+function scoreOf(d){var w=estW(d);var f=w?w.frac:0.2;return d.total*(1+0.3*f);}
+
+/* ---------- טאב 1: דילים ---------- */
+function initDeals(){
+  var box=document.getElementById('destChecks'); box.innerHTML='';
+  D.DESTS.forEach(function(t){
+    box.innerHTML += '<label><input type="checkbox" class="dchk" value="'+t.code+'" checked> '+esc(t.name)+'</label>';
+  });
+  var dates=D.DEALS.map(function(d){return d.dep_date;}).sort();
+  document.getElementById('dFrom').value = dates[0] || '2026-07-25';
+  document.getElementById('dTo').value = (dates[dates.length-1]) || '2026-10-31';
+  renderDeals();
+}
+function renderDeals(){
+  var sel=[].slice.call(document.querySelectorAll('.dchk:checked')).map(function(c){return c.value;});
+  var from=document.getElementById('dFrom').value, to=document.getElementById('dTo').value;
+  var nmin=+document.getElementById('nMin').value||1, nmax=+document.getElementById('nMax').value||99;
+  var rows=D.DEALS.filter(function(d){
+    return sel.indexOf(d.code)>-1 && d.dep_date>=from && d.dep_date<=to && d.nights>=nmin && d.nights<=nmax;
+  });
+  rows.sort(function(a,b){return scoreOf(a)-scoreOf(b);});
+  rows=rows.slice(0,30);
+  var out=document.getElementById('dealsOut');
+  if(!rows.length){out.innerHTML='<div class="card muted">לא נמצאו דילים לסינון הזה כרגע. (המאגר מתמלא ככל שמתקרבים לתאריך — נסי טווח רחב יותר או יעדים נוספים.)</div>';updateWa([]);return;}
+  var medals=['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣'];
+  var html='<div class="card"><h3>'+rows.length+' דילים (זול + פחות גשם)</h3>';
+  rows.forEach(function(d,i){
+    var w=estW(d);
+    var wl=w?('<div class="weather">🌡️ ~'+w.tmax+'°/'+w.tmin+'° · 🌧️ ~'+w.rainy+' ימי גשם צפויים (מתוך '+w.days+')</div>'):'';
+    html+='<div class="deal"><div class="top"><span class="rank">'+(medals[i]||(i+1)+'.')+'</span><span class="dest">'+esc(d.dest)+'</span></div>'
+      +'<div class="prices"><div>🎫 כרטיס: <b>~'+nf(d.per_person)+' '+d.currency+'</b></div><div class="p9">👨‍👩‍👧‍👦 ל-9: <b>~'+nf(d.total)+' '+d.currency+'</b></div></div>'
+      +'<div class="route">🛫 '+d.dep_date+' '+d.dep_time+' → 🛬 '+d.ret_date+' '+d.ret_time+' <span class="nights">'+d.nights+' לילות</span></div>'
+      +wl+'<div class="bag">🏢 '+esc(d.airline)+' · ישיר · 🧳 '+esc(d.bag)+'</div>'
+      +'<a class="book" href="'+d.link+'" target="_blank">להזמנה ולמחיר מדויק ➜</a></div>';
+  });
+  html+='</div>';
+  out.innerHTML=html;
+  updateWa(rows);
+}
+function updateWa(rows){
+  var t='✈️ דילים משפחתיים (טיסה ישירה):\n\n';
+  rows.slice(0,7).forEach(function(d,i){t+=(i+1)+'. '+d.dest+' | כרטיס ~'+nf(d.per_person)+'₪ · ל-9 ~'+nf(d.total)+'₪ | '+d.dep_date+'→'+d.ret_date+'\n';});
+  t+='\nמתוך סוכן הטיסות שלי 🤖';
+  document.getElementById('waBtn').href='https://wa.me/?text='+encodeURIComponent(t);
+}
+
+/* ---------- טאב 2: תכנון מסלול ---------- */
+function initPlan(){
+  var s=document.getElementById('pDest'); s.innerHTML='';
+  Object.keys(D.ITIN).forEach(function(code){
+    s.innerHTML+='<option value="'+code+'">'+esc(D.ITIN[code].name)+'</option>';
+  });
+  document.getElementById('pArr').value='2026-09-20';
+  document.getElementById('pDep').value='2026-09-26';
+}
+function daysBetween(a,b){return Math.round((new Date(b)-new Date(a))/86400000);}
+function buildPlan(){
+  var code=document.getElementById('pDest').value, it=D.ITIN[code];
+  var arr=document.getElementById('pArr').value, dep=document.getElementById('pDep').value;
+  var arrT=document.getElementById('pArrT').value, depT=document.getElementById('pDepT').value;
+  var car=document.getElementById('pCar').value, budget=document.getElementById('pBudget').value;
+  var wish=(document.getElementById('pWish').value||'').toLowerCase();
+  var out=document.getElementById('planOut');
+  if(!it||!arr||!dep){out.innerHTML='<div class="card muted">בחרי יעד ותאריכים.</div>';return;}
+  var nDays=daysBetween(arr,dep)+1; if(nDays<1)nDays=1;
+
+  /* העדפות מהטקסט החופשי */
+  var pref=[];
+  if(/מים|בריכ|מגלש|אקווה/.test(wish))pref.push('water');
+  if(/מוזיא|מדע|אינטראקט/.test(wish))pref.push('museum');
+  if(/חיו|זו|ספארי/.test(wish))pref.push('zoo');
+  if(/פארק|טבע|ירוק/.test(wish))pref.push('park');
+  if(/שעשוע|לונה|רכבת|אדרנל/.test(wish))pref.push('themepark');
+  if(/היסטור|טירה|מצוד/.test(wish))pref.push('history');
+  var atts=it.attractions.slice().sort(function(a,b){
+    var pa=pref.indexOf(a.tag)>-1?0:1, pb=pref.indexOf(b.tag)>-1?0:1; return pa-pb;
+  });
+
+  /* חלוקה ליומים */
+  var pool=atts.slice(), days=[];
+  for(var i=0;i<nDays;i++){
+    var isArr=(i===0), isDep=(i===nDays-1 && nDays>1);
+    var picks=[];
+    var max=(isArr||isDep)?1:2;
+    while(picks.length<max && pool.length){ picks.push(pool.shift()); }
+    days.push({arr:isArr,dep:isDep,picks:picks});
+  }
+
+  var html='<div class="card"><h3>🗺️ מסלול ל'+esc(it.name)+' · '+nDays+' ימים</h3>';
+  html+='<div class="muted">לינה מומלצת: '+esc(it.lodging)+'</div>';
+  if(budget)html+='<div class="muted">💰 תקציב טיולים שציינת: ~'+nf(+budget)+'₪ — שובץ לפי רמת עלות (₪=זול, ₪₪=בינוני).</div>';
+  if(car==='no')html+='<div class="muted">🚗 בלי רכב — אטרקציות מחוץ לעיר סומנו (עדיף טיול מאורגן/מונית).</div>';
+  if(wish)html+='<div class="muted">📝 הבקשות שלך נלקחו בחשבון: "'+esc(wish)+'"</div>';
+
+  days.forEach(function(day,idx){
+    var lbl='יום '+(idx+1);
+    var note='';
+    if(day.arr)note=' (יום הגעה · נחיתה '+arrT+' — פעילות קלה ליד הלינה + ארוחה)';
+    if(day.dep)note=' (יום חזרה · המראה '+depT+' — אטרקציה בבוקר ואז שדה תעופה)';
+    html+='<div class="day"><h4>'+lbl+esc(note)+'</h4>';
+    if(!day.picks.length){html+='<div class="muted">יום חופשי — שוטטות, קניות, או חזרה לאטרקציה אהובה.</div>';}
+    day.picks.forEach(function(a){
+      var carNote=(car==='no'&&a.car)?' · 🚗 עדיף רכב/טיול מאורגן':'';
+      html+='<div class="att"><b>'+esc(a.t)+'</b><div>'+esc(a.d)+'</div><div class="meta">⏱️ '+esc(a.h)+' · 💰 '+esc(a.c)+carNote+'</div></div>';
+    });
+    html+='</div>';
+  });
+  html+='</div>';
+  out.innerHTML=html;
+
+  /* קישור לתוכנית מותאמת אישית */
+  var msg='שלום! בחרתי '+it.name+'. תאריכים '+arr+' '+arrT+' עד '+dep+' '+depT
+    +'. תקציב טיולים: '+(budget||'-')+'₪. רכב: '+(car==='yes'?'כן':'לא')
+    +'. אנחנו 4 מבוגרים ו-5 ילדים בגילאי 8-12. בקשות: '+(wish||'-')
+    +'. אשמח לתוכנית מסלול מפורטת ומותאמת.';
+  document.getElementById('planWa').href='https://wa.me/?text='+encodeURIComponent(msg);
+}
+
+initDeals();
+initPlan();
+</script>
 </body>
 </html>"""
