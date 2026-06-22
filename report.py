@@ -202,7 +202,8 @@ APP_TEMPLATE = r"""<!doctype html>
     background:radial-gradient(1100px 480px at 100% -10%,#dbeafe 0,transparent 60%),
     radial-gradient(900px 480px at -10% 0,#cffafe 0,transparent 55%),var(--bg);
     padding:26px 18px 44px}
-  .wrap{max-width:780px;margin:0 auto}
+  .wrap{max-width:1120px;margin:0 auto}
+  .dealgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
   header{position:relative;overflow:hidden;background:linear-gradient(135deg,#1e6fd9,#0ea5b7 65%,#22c55e);
     color:#fff;border-radius:26px;padding:32px 26px;text-align:center;box-shadow:0 20px 44px -14px rgba(14,116,144,.55)}
   header::after{content:"✈️";position:absolute;font-size:150px;opacity:.10;inset-inline-start:-12px;top:-26px;transform:rotate(-15deg)}
@@ -398,7 +399,7 @@ function renderDeals(){
   var out=document.getElementById('dealsOut');
   if(!rows.length){out.innerHTML='<div class="card muted">לא נמצאו דילים לסינון הזה כרגע. (המאגר מתמלא ככל שמתקרבים לתאריך — נסי טווח רחב יותר או יעדים נוספים.)</div>';updateWa([]);return;}
   var medals=['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣'];
-  var html='<div class="card"><h3>'+rows.length+' דילים (זול + פחות גשם)</h3>';
+  var html='<div class="card"><h3>'+rows.length+' דילים (זול + פחות גשם)</h3><div class="dealgrid">';
   rows.forEach(function(d,i){
     var w=estW(d);
     var wl=w?('<div class="weather">🌡️ ~'+w.tmax+'°/'+w.tmin+'° · 🌧️ ~'+w.rainy+' ימי גשם צפויים (מתוך '+w.days+')</div>'):'';
@@ -410,7 +411,7 @@ function renderDeals(){
       +wl+'<div class="bag">🏢 '+esc(d.airline)+' · ישיר · 🧳 '+esc(d.bag)+'</div>'
       +'<a class="book" href="'+d.link+'" target="_blank">להזמנה ולמחיר מדויק ➜</a></div>';
   });
-  html+='</div>';
+  html+='</div></div>';
   out.innerHTML=html;
   updateWa(rows);
 }
