@@ -201,9 +201,8 @@ APP_TEMPLATE = r"""<!doctype html>
   body{font-family:'Heebo',system-ui,'Segoe UI',Arial,sans-serif;color:var(--ink);min-height:100vh;
     background:radial-gradient(1100px 480px at 100% -10%,#dbeafe 0,transparent 60%),
     radial-gradient(900px 480px at -10% 0,#cffafe 0,transparent 55%),var(--bg);
-    padding:26px 18px 44px}
-  .wrap{max-width:1120px;margin:0 auto}
-  .dealgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+    padding:18px 14px 40px}
+  .wrap{max-width:none;margin:0 auto}
   header{position:relative;overflow:hidden;background:linear-gradient(135deg,#1e6fd9,#0ea5b7 65%,#22c55e);
     color:#fff;border-radius:26px;padding:32px 26px;text-align:center;box-shadow:0 20px 44px -14px rgba(14,116,144,.55)}
   header::after{content:"✈️";position:absolute;font-size:150px;opacity:.10;inset-inline-start:-12px;top:-26px;transform:rotate(-15deg)}
@@ -241,20 +240,22 @@ APP_TEMPLATE = r"""<!doctype html>
   .btn:hover{transform:translateY(-2px)}
   .btn.go{background:linear-gradient(135deg,#1e6fd9,#0ea5b7)}
   .btn.wa{background:linear-gradient(135deg,#25d366,#1ebe5b)}
-  .deal{border:1px solid var(--line);border-radius:18px;padding:18px;margin-top:14px;background:linear-gradient(180deg,#fff,#fbfeff);box-shadow:0 8px 22px -16px rgba(2,32,71,.35);transition:.2s}
-  .deal:hover{transform:translateY(-3px);box-shadow:0 18px 34px -18px rgba(2,32,71,.45)}
-  .deal .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px}
-  .deal .rank{font-size:1.55rem}
-  .deal .dest{font-size:1.32rem;font-weight:900}
-  .prices{background:linear-gradient(135deg,#ecfeff,#eff6ff);border:1px solid #d6f0f5;border-radius:14px;padding:13px 15px;margin:10px 0}
-  .prices .p9{font-size:1.4rem;font-weight:900;color:var(--brand2);margin-top:2px}
-  .conv{color:var(--muted);font-size:.82rem;font-weight:600;white-space:nowrap}
-  .route{font-size:.95rem;margin:8px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-  .nights{background:#eef6ff;color:var(--brand2);padding:3px 10px;border-radius:999px;font-size:.8rem;font-weight:700}
-  .weather{background:linear-gradient(135deg,#fff7e6,#fffaf0);border:1px solid #fde9c8;border-radius:12px;padding:9px 12px;color:#92660a;font-size:.9rem;font-weight:500;margin:8px 0}
-  .bag{color:var(--muted);font-size:.88rem;margin:5px 0}
-  .book{display:block;text-align:center;margin-top:10px;background:linear-gradient(135deg,#1e6fd9,#0ea5b7);color:#fff;padding:13px;border-radius:12px;text-decoration:none;font-weight:800;transition:.2s}
+  .deal{display:flex;flex-wrap:wrap;align-items:center;gap:14px 22px;border:1px solid var(--line);border-radius:16px;padding:16px 20px;margin-top:14px;background:linear-gradient(180deg,#fff,#fbfeff);box-shadow:0 8px 22px -16px rgba(2,32,71,.35);transition:.2s}
+  .deal:hover{box-shadow:0 16px 30px -18px rgba(2,32,71,.45)}
+  .c-dest{flex:0 0 auto;min-width:140px;font-size:1.3rem;font-weight:900;display:flex;align-items:center;gap:8px}
+  .c-dest .rank{font-size:1.5rem}
+  .c-price{flex:1 1 230px;background:linear-gradient(135deg,#ecfeff,#eff6ff);border:1px solid #d6f0f5;border-radius:12px;padding:10px 14px}
+  .c-price .p9b{font-size:1.25rem;font-weight:900;color:var(--brand2);margin-top:2px}
+  .conv{color:var(--muted);font-size:.8rem;font-weight:600;white-space:nowrap}
+  .c-route{flex:1 1 250px;font-size:.92rem;line-height:1.7;color:#33506e}
+  .nights{background:#eef6ff;color:var(--brand2);padding:2px 9px;border-radius:999px;font-size:.78rem;font-weight:700}
+  .c-weather{flex:1 1 190px}
+  .weather{background:linear-gradient(135deg,#fff7e6,#fffaf0);border:1px solid #fde9c8;border-radius:12px;padding:8px 11px;color:#92660a;font-size:.88rem;font-weight:500;margin-bottom:6px}
+  .bag{color:var(--muted);font-size:.85rem}
+  .c-book{flex:0 0 auto;margin-inline-start:auto}
+  .book{display:block;text-align:center;background:linear-gradient(135deg,#1e6fd9,#0ea5b7);color:#fff;padding:13px 22px;border-radius:12px;text-decoration:none;font-weight:800;white-space:nowrap;transition:.2s}
   .book:hover{filter:brightness(1.08)}
+  @media(max-width:760px){.deal{flex-direction:column;align-items:stretch}.c-book{margin:0}.book{width:100%}}
   .day{border-inline-start:5px solid var(--brand);background:#f7fbfd;border-radius:14px;padding:16px;margin-top:14px}
   .day h4{color:var(--brand2);font-size:1.05rem;margin-bottom:6px}
   .att{margin:8px 0;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff}
@@ -399,19 +400,20 @@ function renderDeals(){
   var out=document.getElementById('dealsOut');
   if(!rows.length){out.innerHTML='<div class="card muted">לא נמצאו דילים לסינון הזה כרגע. (המאגר מתמלא ככל שמתקרבים לתאריך — נסי טווח רחב יותר או יעדים נוספים.)</div>';updateWa([]);return;}
   var medals=['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣'];
-  var html='<div class="card"><h3>'+rows.length+' דילים (זול + פחות גשם)</h3><div class="dealgrid">';
+  var html='<div class="card"><h3>'+rows.length+' דילים (זול + פחות גשם)</h3>';
   rows.forEach(function(d,i){
     var w=estW(d);
-    var wl=w?('<div class="weather">🌡️ ~'+w.tmax+'°/'+w.tmin+'° · 🌧️ ~'+w.rainy+' ימי גשם צפויים (מתוך '+w.days+')</div>'):'';
-    html+='<div class="deal"><div class="top"><span class="rank">'+(medals[i]||(i+1)+'.')+'</span><span class="dest">'+esc(d.dest)+'</span></div>'
-      +'<div class="prices"><div>🎫 כרטיס: <b>~'+nf(d.per_person)+' '+d.currency+'</b> <span class="conv">'+conv(d.per_person)+'</span></div><div class="p9">👨‍👩‍👧‍👦 ל-9: <b>~'+nf(d.total)+' '+d.currency+'</b> <span class="conv">'+conv(d.total)+'</span></div></div>'
-      +'<div class="route">🛫 '+fmtDate(d.dep_date)+' בשעה '+d.dep_time+'</div>'
-      +'<div class="route">🛬 '+fmtDate(d.ret_date)+' בשעה '+d.ret_time+' <span class="nights">'+d.nights+' לילות</span></div>'
-      +'<div class="bag">⏱️ משך טיסה: הלוך ~'+fmtDur(d.dur_to)+' · חזור ~'+fmtDur(d.dur_back)+'</div>'
-      +wl+'<div class="bag">🏢 '+esc(d.airline)+' · ישיר · 🧳 '+esc(d.bag)+'</div>'
-      +'<a class="book" href="'+d.link+'" target="_blank">להזמנה ולמחיר מדויק ➜</a></div>';
+    var wl=w?('<div class="weather">🌡️ ~'+w.tmax+'°/'+w.tmin+'° · 🌧️ ~'+w.rainy+' ימי גשם (מתוך '+w.days+')</div>'):'';
+    html+='<div class="deal">'
+      +'<div class="c-dest"><span class="rank">'+(medals[i]||(i+1)+'.')+'</span> '+esc(d.dest)+'</div>'
+      +'<div class="c-price"><div>🎫 כרטיס: <b>~'+nf(d.per_person)+' '+d.currency+'</b> <span class="conv">'+conv(d.per_person)+'</span></div>'
+        +'<div class="p9b">👨‍👩‍👧‍👦 ל-9: <b>~'+nf(d.total)+' '+d.currency+'</b> <span class="conv">'+conv(d.total)+'</span></div></div>'
+      +'<div class="c-route">🛫 '+fmtDate(d.dep_date)+' '+d.dep_time+'<br>🛬 '+fmtDate(d.ret_date)+' '+d.ret_time+' <span class="nights">'+d.nights+' לילות</span><br>⏱️ '+fmtDur(d.dur_to)+' → '+fmtDur(d.dur_back)+' · 🏢 '+esc(d.airline)+' · ישיר</div>'
+      +'<div class="c-weather">'+wl+'<div class="bag">🧳 '+esc(d.bag)+'</div></div>'
+      +'<div class="c-book"><a class="book" href="'+d.link+'" target="_blank">להזמנה ➜</a></div>'
+    +'</div>';
   });
-  html+='</div></div>';
+  html+='</div>';
   out.innerHTML=html;
   updateWa(rows);
 }

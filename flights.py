@@ -8,6 +8,7 @@
 (במיוחד לילדים) — הקישור מצורף לכל דיל.
 """
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor
 import time
 import requests
 
@@ -83,14 +84,22 @@ def _search_destination(token, s, dest):
                         s.get("blackout_start"), s.get("blackout_end"))
     offers, errors = [], 0
 
-    for dep, ret, nights in pairs:
+    def _fetch(pair):
+        dep, ret, nights = pair
         try:
-            data = _query(token, s["origin"], dest["code"], dep, ret,
-                          s["nonstop_only"], s["currency"])
+            return nights, _query(token, s["origin"], dest["code"], dep, ret,
+                                  s["nonstop_only"], s["currency"])
         except requests.HTTPError:
+            return nights, None
+
+    # חיפוש מקבילי — הרבה יותר מהיר (במקום סדרתי)
+    with ThreadPoolExecutor(max_workers=10) as ex:
+        results = list(ex.map(_fetch, pairs))
+
+    for nights, data in results:
+        if data is None:
             errors += 1
             continue
-
         for o in data.get("data", []):
             if s["nonstop_only"] and (o.get("transfers", 0) or o.get("return_transfers", 0)):
                 continue
@@ -116,7 +125,6 @@ def _search_destination(token, s, dest):
                 "dur_back": o.get("duration_back") or 0,
                 "link": AVIASALES + o["link"] if o.get("link") else AVIASALES,
             })
-        time.sleep(0.15)
 
     offers.sort(key=lambda x: x["total"])
     seen, unique = set(), []
