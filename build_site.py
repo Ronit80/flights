@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 
 from flights import find_best
 from weather import monthly_climate
+from fx import get_rates
 from itinerary import ITIN
 from report import (build_app_html, build_email_html, build_summary_text,
                     flatten_all, flatten_top, empty_dests,
@@ -31,8 +32,10 @@ def main():
         sys.exit("חסר TRAVELPAYOUTS_TOKEN (הגדירי אותו ב-GitHub Secrets).")
     cfg["travelpayouts"] = {"token": token}
 
-    # חותמת זמן בשעון ישראל (UTC+3, קיץ)
-    today = (datetime.utcnow() + timedelta(hours=3)).strftime("%d/%m/%Y %H:%M")
+    # חותמת זמן בשעון ישראל (UTC+3, קיץ) — יום + dd/mm/yy + שעה
+    now_il = datetime.utcnow() + timedelta(hours=3)
+    _dow = {0: "ב׳", 1: "ג׳", 2: "ד׳", 3: "ה׳", 4: "ו׳", 5: "שבת", 6: "א׳"}
+    today = f"יום {_dow[now_il.weekday()]} {now_il.strftime('%d/%m/%y %H:%M')}"
     print(f"[{today}] מחפש טיסות...")
     results, _ = find_best(cfg)
 
@@ -44,8 +47,11 @@ def main():
     print("מחשב אקלים חודשי...")
     climate = {d["code"]: monthly_climate(d["code"]) for d in dests}
 
+    fx = get_rates()
+    print(f"שערי חליפין: 1 ILS = ${fx['USD']} / €{fx['EUR']}")
+
     # 1) אפליקציה אינטראקטיבית -> public/index.html
-    app_html = build_app_html(all_deals, climate, dests, ITIN, today)
+    app_html = build_app_html(all_deals, climate, dests, ITIN, today, fx)
     out_dir = os.path.join(HERE, "public")
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "index.html"), "w", encoding="utf-8") as f:
@@ -73,7 +79,7 @@ def main():
                 {"smtp_host": "smtp.gmail.com", "smtp_port": 465, "sender": sender,
                  "app_password": pw, "recipients": recips},
                 f"✈️ סוכן הטיסות — דילים ל-{today}",
-                build_email_html(top, empty_dests(results), today),
+                build_email_html(top, empty_dests(results), today, fx),
                 build_summary_text(top, today),
             )
             print(f"✅ מייל נשלח ל-{len(recips)} נמענים")

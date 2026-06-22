@@ -32,6 +32,23 @@ def _fmt_dur(minutes):
     return f"{h}ש' {m}ד'" if m else f"{h}ש'"
 
 
+def _conv(ils, fx):
+    if not fx:
+        return ""
+    return f"(~${round(ils * fx['USD']):,} / ~€{round(ils * fx['EUR']):,})"
+
+
+_DOW_HE = {0: "ב׳", 1: "ג׳", 2: "ד׳", 3: "ה׳", 4: "ו׳", 5: "שבת", 6: "א׳"}
+
+
+def _fmt_date(iso):
+    """'2026-08-27' -> 'יום ה׳ 27/08/26'"""
+    from datetime import date
+    y, m, d = iso.split("-")
+    wd = date(int(y), int(m), int(d)).weekday()  # Mon=0
+    return f"יום {_DOW_HE[wd]} {d}/{m}/{y[2:]}"
+
+
 def flatten_top(results, limit=TOP_N):
     flat = flatten_all(results)
     return flat[:limit]
@@ -99,10 +116,11 @@ def wa_share_link(text):
     return "https://wa.me/?text=" + urllib.parse.quote(text)
 
 
-def _email_card(o, rank):
+def _email_card(o, rank, fx=None):
     medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣"]
     medal = medals[rank] if rank < len(medals) else f"{rank+1}."
     cur = o["currency"]
+    cs = 'color:#64748b;font-size:13px'
     w = o.get("weather")
     weather = (f'<div style="background:#fff7e6;border-radius:8px;padding:7px 10px;color:#6b5a2e;font-size:14px;margin:6px 0">'
                f'🌡️ ~{w["tmax"]}°/{w["tmin"]}° · 🌧️ ~{w["rainy_days"]} ימי גשם צפויים (מתוך {w["days"]})</div>') if w else ""
@@ -110,10 +128,11 @@ def _email_card(o, rank):
       <div style="border:1px solid #e3ebf2;border-radius:12px;padding:14px;margin-top:12px">
         <div style="font-size:20px;font-weight:800">{medal} {_html.escape(o['dest'])}</div>
         <div style="background:#f4f9fc;border-radius:10px;padding:10px;margin:8px 0">
-          <div>🎫 מחיר לכרטיס אחד: <b>~{o['per_person']:,} {cur}</b></div>
-          <div style="font-size:19px;color:#1e6091">👨‍👩‍👧‍👦 סה"כ ל-9 נוסעים: <b>~{o['total']:,} {cur}</b></div>
+          <div>🎫 מחיר לכרטיס אחד: <b>~{o['per_person']:,} {cur}</b> <span style="{cs}">{_conv(o['per_person'], fx)}</span></div>
+          <div style="font-size:19px;color:#1e6091">👨‍👩‍👧‍👦 סה"כ ל-9 נוסעים: <b>~{o['total']:,} {cur}</b> <span style="{cs}">{_conv(o['total'], fx)}</span></div>
         </div>
-        <div>🛫 {o['dep_date']} {o['dep_time']} → 🛬 {o['ret_date']} {o['ret_time']} ({o['nights']} לילות)</div>
+        <div>🛫 {_fmt_date(o['dep_date'])} בשעה {o['dep_time']}</div>
+        <div>🛬 {_fmt_date(o['ret_date'])} בשעה {o['ret_time']} ({o['nights']} לילות)</div>
         <div style="color:#50606f;font-size:14px">⏱️ משך טיסה: הלוך ~{_fmt_dur(o.get('dur_to'))} · חזור ~{_fmt_dur(o.get('dur_back'))}</div>
         {weather}
         <div style="color:#50606f">🏢 {_html.escape(o['airline'])} · טיסה ישירה · 🧳 {_bag(o['airline'])}</div>
@@ -121,8 +140,8 @@ def _email_card(o, rank):
       </div>"""
 
 
-def build_email_html(deals, empties, today):
-    cards = "".join(_email_card(o, i) for i, o in enumerate(deals)) if deals else \
+def build_email_html(deals, empties, today, fx=None):
+    cards = "".join(_email_card(o, i, fx) for i, o in enumerate(deals)) if deals else \
         '<p style="color:#7a8a99">עדיין אין מחירים לתאריכים אלה — נמשיך לבדוק כל יום ✓</p>'
     pend = ("<p style='color:#8a99a8;font-size:13px'>⏳ ממתינים למחירים: " + _html.escape("، ".join(empties)) + "</p>") if empties else ""
     return f"""<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"></head>
@@ -147,7 +166,7 @@ def _safe_json(obj):
     return json.dumps(obj, ensure_ascii=False).replace("</", "<\\/")
 
 
-def build_app_html(all_deals, climate, dests, itin, today):
+def build_app_html(all_deals, climate, dests, itin, today, fx=None):
     deals_js = []
     for o in all_deals:
         deals_js.append({
@@ -162,7 +181,7 @@ def build_app_html(all_deals, climate, dests, itin, today):
     data = {
         "DEALS": deals_js, "CLIMATE": climate,
         "DESTS": [{"code": d["code"], "name": d["name"]} for d in dests],
-        "ITIN": itin, "TODAY": today,
+        "ITIN": itin, "TODAY": today, "FX": fx or {"USD": 0.27, "EUR": 0.25},
     }
     return APP_TEMPLATE.replace("__DATA__", _safe_json(data))
 
@@ -218,6 +237,7 @@ APP_TEMPLATE = r"""<!doctype html>
   .deal .dest{font-size:1.32rem;font-weight:900}
   .prices{background:linear-gradient(135deg,#ecfeff,#eff6ff);border:1px solid #d6f0f5;border-radius:14px;padding:13px 15px;margin:10px 0}
   .prices .p9{font-size:1.4rem;font-weight:900;color:var(--brand2);margin-top:2px}
+  .conv{color:var(--muted);font-size:.82rem;font-weight:600;white-space:nowrap}
   .route{font-size:.95rem;margin:8px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
   .nights{background:#eef6ff;color:var(--brand2);padding:3px 10px;border-radius:999px;font-size:.8rem;font-weight:700}
   .weather{background:linear-gradient(135deg,#fff7e6,#fffaf0);border:1px solid #fde9c8;border-radius:12px;padding:9px 12px;color:#92660a;font-size:.9rem;font-weight:500;margin:8px 0}
@@ -301,6 +321,8 @@ APP_TEMPLATE = r"""<!doctype html>
 
 <script>
 var D = __DATA__;
+var FX = D.FX || {USD:0.27,EUR:0.25};
+function conv(ils){var u=Math.round(ils*FX.USD),e=Math.round(ils*FX.EUR);return '(~$'+u.toLocaleString('en-US')+' / ~€'+e.toLocaleString('en-US')+')';}
 document.getElementById('upd').textContent = 'עודכן: ' + D.TODAY;
 
 /* ---------- כללי ---------- */
@@ -313,6 +335,8 @@ function showTab(n){
 function esc(s){var e=document.createElement('div');e.textContent=s;return e.innerHTML;}
 function nf(x){return Math.round(x).toLocaleString('he-IL');}
 function fmtDur(m){if(!m)return '';var h=Math.floor(m/60),r=m%60;return r?(h+"ש' "+r+"ד'"):(h+"ש'");}
+var DOW=['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','שבת'];
+function fmtDate(iso){var p=iso.split('-');var dt=new Date(+p[0],+p[1]-1,+p[2]);return 'יום '+DOW[dt.getDay()]+' '+p[2]+'/'+p[1]+'/'+p[0].slice(2);}
 
 /* ---------- מזג אוויר + ניקוד ---------- */
 function estW(d){
@@ -350,8 +374,9 @@ function renderDeals(){
     var w=estW(d);
     var wl=w?('<div class="weather">🌡️ ~'+w.tmax+'°/'+w.tmin+'° · 🌧️ ~'+w.rainy+' ימי גשם צפויים (מתוך '+w.days+')</div>'):'';
     html+='<div class="deal"><div class="top"><span class="rank">'+(medals[i]||(i+1)+'.')+'</span><span class="dest">'+esc(d.dest)+'</span></div>'
-      +'<div class="prices"><div>🎫 כרטיס: <b>~'+nf(d.per_person)+' '+d.currency+'</b></div><div class="p9">👨‍👩‍👧‍👦 ל-9: <b>~'+nf(d.total)+' '+d.currency+'</b></div></div>'
-      +'<div class="route">🛫 '+d.dep_date+' '+d.dep_time+' → 🛬 '+d.ret_date+' '+d.ret_time+' <span class="nights">'+d.nights+' לילות</span></div>'
+      +'<div class="prices"><div>🎫 כרטיס: <b>~'+nf(d.per_person)+' '+d.currency+'</b> <span class="conv">'+conv(d.per_person)+'</span></div><div class="p9">👨‍👩‍👧‍👦 ל-9: <b>~'+nf(d.total)+' '+d.currency+'</b> <span class="conv">'+conv(d.total)+'</span></div></div>'
+      +'<div class="route">🛫 '+fmtDate(d.dep_date)+' בשעה '+d.dep_time+'</div>'
+      +'<div class="route">🛬 '+fmtDate(d.ret_date)+' בשעה '+d.ret_time+' <span class="nights">'+d.nights+' לילות</span></div>'
       +'<div class="bag">⏱️ משך טיסה: הלוך ~'+fmtDur(d.dur_to)+' · חזור ~'+fmtDur(d.dur_back)+'</div>'
       +wl+'<div class="bag">🏢 '+esc(d.airline)+' · ישיר · 🧳 '+esc(d.bag)+'</div>'
       +'<a class="book" href="'+d.link+'" target="_blank">להזמנה ולמחיר מדויק ➜</a></div>';
