@@ -216,6 +216,16 @@ APP_TEMPLATE = r"""<!doctype html>
   .tabs button.active{background:linear-gradient(135deg,#1e6fd9,#0ea5b7);color:#fff;box-shadow:0 10px 22px -8px rgba(14,116,144,.6)}
   .panel{display:none}.panel.active{display:block;animation:fade .3s ease}
   @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .banner{background:linear-gradient(135deg,#eef6ff,#ecfeff);border:1px solid #d6e6f5;border-radius:16px;padding:14px 16px;margin-bottom:16px;font-size:.9rem;line-height:1.75;color:#33506e}
+  .banner b{color:#1e6fd9}
+  .banner .lastupd{margin-top:6px;font-weight:700;color:#0ea5b7}
+  .overlay{display:none;position:fixed;inset:0;background:rgba(15,37,64,.55);align-items:center;justify-content:center;z-index:50;padding:20px}
+  .overlay.show{display:flex}
+  .modal{background:#fff;border-radius:20px;padding:24px;max-width:430px;width:100%;box-shadow:0 30px 60px -20px rgba(0,0,0,.5);animation:pop .25s ease;text-align:center}
+  @keyframes pop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
+  .modal h3{color:#1e6fd9;font-size:1.35rem;margin-bottom:12px}
+  .modal p{margin:9px 0;line-height:1.65;color:#33506e;font-size:.95rem;text-align:right}
+  .modal .big{font-size:1.05rem;font-weight:800;color:#0ea5b7;text-align:center}
   .card{background:var(--card);border-radius:22px;padding:24px;margin-bottom:18px;border:1px solid var(--line);box-shadow:0 12px 34px -18px rgba(2,32,71,.28)}
   .card h3{font-weight:800;font-size:1.25rem;margin-bottom:14px}
   label{display:block;font-size:.85rem;font-weight:500;color:var(--muted);margin:12px 0 5px}
@@ -268,6 +278,11 @@ APP_TEMPLATE = r"""<!doctype html>
 
   <!-- טאב 1 -->
   <div id="panel1" class="panel active">
+    <div class="banner">
+      <div>⚡ <b>סינון מיידי:</b> שינוי יעדים/תאריכים מעדכן את התוצאות <b>מיד</b> — בלי המתנה.</div>
+      <div>🔄 <b>נתונים חדשים מהשרת:</b> אוטומטית 3× ביום (08:00 · 13:00 · 18:00). עדכון מלא בשרת אורך <b>~25-30 דק'</b> — לחיצה על "↻ רענן" מציגה את העדכון האחרון שפורסם.</div>
+      <div class="lastupd">🕐 הנתונים עודכנו לאחרונה: <span id="lastupd"></span></div>
+    </div>
     <div class="card">
       <h3>בחרי יעדים ותאריכים</h3>
       <label>יעדים (אפשר לבחור כמה):</label>
@@ -280,10 +295,8 @@ APP_TEMPLATE = r"""<!doctype html>
         <div><label>מינ' לילות</label><input type="number" id="nMin" value="6" min="1" onchange="renderDeals()"></div>
         <div><label>מקס' לילות</label><input type="number" id="nMax" value="11" min="1" onchange="renderDeals()"></div>
       </div>
-      <button class="btn go" onclick="renderDeals()">🔄 רענן תוצאות</button>
+      <button class="btn go" onclick="refreshNow()">🔄 רענן תוצאות</button>
       <a class="btn wa" id="waBtn" href="#" target="_blank">📲 שתפו בוואטסאפ</a>
-      <div class="muted" style="text-align:center;margin-top:10px">⚡ התוצאות מתעדכנות מיד לפי הבחירה שלך. הנתונים נמשכים מהשרת 3× ביום.<br>
-        <a href="#" onclick="location.reload();return false" style="color:#1e6fd9;font-weight:700">↻ משוך נתונים עדכניים מהשרת</a></div>
     </div>
     <div id="dealsOut"></div>
   </div>
@@ -319,11 +332,24 @@ APP_TEMPLATE = r"""<!doctype html>
   </footer>
 </div>
 
+<div id="popup" class="overlay" onclick="closePopup(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3>🔄 רענון תוצאות</h3>
+    <p>✅ <b>הסינון עודכן מיד</b> לפי הבחירה שלך (יעדים/תאריכים).</p>
+    <p>🕐 הנתונים מהשרת עודכנו לאחרונה:<br><span class="big" id="popupTime"></span></p>
+    <p>📡 נתונים חדשים מהשרת נמשכים <b>אוטומטית 3× ביום</b> (08:00 · 13:00 · 18:00).<br>
+       עדכון מלא בשרת אורך <b>~25-30 דקות</b> — אין צורך להמתין כאן, הדף יתעדכן לבד.</p>
+    <button class="btn go" onclick="location.reload()">↻ טען מחדש מהשרת</button>
+    <button class="btn" style="background:#94a3b8;box-shadow:none" onclick="closePopup()">סגור</button>
+  </div>
+</div>
+
 <script>
 var D = __DATA__;
 var FX = D.FX || {USD:0.27,EUR:0.25};
 function conv(ils){var u=Math.round(ils*FX.USD),e=Math.round(ils*FX.EUR);return '(~$'+u.toLocaleString('en-US')+' / ~€'+e.toLocaleString('en-US')+')';}
 document.getElementById('upd').textContent = 'עודכן: ' + D.TODAY;
+var _lu=document.getElementById('lastupd'); if(_lu)_lu.textContent=D.TODAY;
 
 /* ---------- כללי ---------- */
 function showTab(n){
@@ -333,6 +359,9 @@ function showTab(n){
   document.getElementById('tab2btn').classList.toggle('active', n===2);
 }
 function esc(s){var e=document.createElement('div');e.textContent=s;return e.innerHTML;}
+function refreshNow(){renderDeals();showPopup();}
+function showPopup(){document.getElementById('popupTime').textContent=D.TODAY;document.getElementById('popup').classList.add('show');}
+function closePopup(){document.getElementById('popup').classList.remove('show');}
 function nf(x){return Math.round(x).toLocaleString('he-IL');}
 function fmtDur(m){if(!m)return '';var h=Math.floor(m/60),r=m%60;return r?(h+"ש' "+r+"ד'"):(h+"ש'");}
 var DOW=['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','שבת'];
